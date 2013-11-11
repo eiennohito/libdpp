@@ -17,7 +17,9 @@ std::unique_ptr<R> make_unique(T &&... vals) {
   return std::unique_ptr<R>(new R(std::forward<T>(vals)...));
 }
 
-template <typename Fp> class sampling_subspace_impl;
+template <typename R> std::unique_ptr<R> make_unique(R *ptr) {
+  return std::unique_ptr<R>(ptr);
+}
 
 template <typename Fp> struct eigen_typedefs {
   typedef Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
@@ -31,12 +33,13 @@ template <typename Fp> struct eigen_typedefs {
 template <typename Fp> class l_kernel_impl {
 
   typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
+  typedef typename eigen_typedefs<Fp>::vector vector_t;
   std::unique_ptr<kernel_t> kernel_;
   Eigen::SelfAdjointEigenSolver<kernel_t> eigen_;
 
-  std::mt19937 rng_{ std::random_device()() };
-
 public:
+  mutable std::mt19937 rng_{ std::random_device()() };
+
   void init_from_kernel(Fp *data, int rows, int cols) {
     typedef typename eigen_typedefs<Fp>::matrix_rowmajor outer_t;
     Eigen::Map<outer_t> outer(data, rows, cols);
@@ -49,7 +52,7 @@ public:
   std::vector<i64> random_subspace_indices() const {
     std::vector<i64> vec;
     vec.reserve(static_cast<i64>(sqrt(kernel_->rows()))); // reserve some memory
-    auto &eigen_values = eigen_.eigenvalues();
+    auto &eigen_values = eigen_.eigenvalues().array();
     auto probs = eigen_values / (eigen_values + 1);
 
     std::uniform_real_distribution<Fp> distr{ 0, 1 };
@@ -63,24 +66,22 @@ public:
     return std::move(vec);
   }
 
-  auto eigenvector(i64 pos) -> decltype(eigen_.eigenvectors().row(pos)) const {
+  auto eigenvector(i64 pos) const -> decltype(eigen_.eigenvectors().row(pos)) {
     return eigen_.eigenvectors().row(pos);
   }
 
-  sampling_subspace_impl<Fp> sampler() const {
-    return sampling_subspace_impl<Fp>{ this, random_subspace_indices() };
-  }
+  i64 cols() const { return kernel_->cols(); }
+
+  sampling_subspace_impl<Fp> *sampler() const;
 };
 
 template <typename Fp>
 l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, int rows, int cols) {
   auto impl = make_unique<typename l_kernel<Fp>::impl_t>();
   impl->init_from_kernel(data, rows, cols);
+  impl->decompose();
   return new l_kernel<Fp>(std::move(impl));
 }
-
-template class l_kernel<float>;
-template class l_kernel<double>;
 
 template <typename Fp> class sampling_subspace_impl {
   typedef typename eigen_typedefs<Fp>::matrix_rowmajor subspace_t;
@@ -89,9 +90,11 @@ template <typename Fp> class sampling_subspace_impl {
   const l_kernel_impl<Fp> *kernel_;
   const std::vector<i64> vec_indices_;
 
-  sampling_subspace_impl(l_kernel_impl<Fp> *kernel, std::vector<i64> &&idxs)
-      : kernel_{ kernel }, vec_indices_{ std::move(idxs) },
-        subspace_{ idxs.size(), kernel->cols() } {
+public:
+  sampling_subspace_impl(const l_kernel_impl<Fp> *kernel,
+                         std::vector<i64> &&idxs)
+      : kernel_{ kernel }, vec_indices_{ std::move(idxs) } {
+    subspace_.resize(vec_indices_.size(), kernel_->cols());
     reset();
   }
 
@@ -105,19 +108,21 @@ template <typename Fp> class sampling_subspace_impl {
   void gram_shmidt_orhonormailze() {
     auto height = subspace_.rows();
     for (i64 row = 0; row < height; ++row) {
-      auto &pivot_row = subspace_.row(row);
+      auto pivot_row = subspace_.row(row);
       pivot_row.normalize();
       for (i64 other = row + 1; other < row; ++other) {
-        auto &other_row = subspace_.row(other);
+        auto other_row = subspace_.row(other);
         auto projection = other_row.dot(pivot_row);
         other_row -= pivot_row * projection;
       }
     }
   }
 
+private:
   typedef typename eigen_typedefs<Fp>::vector vector_t;
   vector_t cached_;
 
+public:
   /***
    Compute a subspace that is orthogonal to the i-th basis vector.
    The i-th basis vector has all zeros except only one in the i-th component.
@@ -137,7 +142,7 @@ template <typename Fp> class sampling_subspace_impl {
 
     cached_.normalize();
     for (i64 i = 0; i < height; ++i) {
-      auto &row = subspace_.row(i);
+      auto row = subspace_.row(i);
       auto proj = row.dot(cached_);
       row -= cached_ * proj;
     }
@@ -166,4 +171,38 @@ template <typename Fp> class sampling_subspace_impl {
     }
   }
 };
+template <typename Fp>
+sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler() const {
+  return new sampling_subspace_impl<Fp>{ this, random_subspace_indices() };
+}
+
+template <typename Fp> l_kernel<Fp>::~l_kernel<Fp>() {}
+
+template <typename Fp> sampling_subspace<Fp> l_kernel<Fp>::sampler() {
+  auto impl = impl_->sampler();
+  return sampling_subspace<Fp>{ make_unique(impl) };
+}
+
+template <typename Fp>
+sampling_subspace<Fp>::sampling_subspace(
+    std::unique_ptr<sampling_subspace_impl<Fp> > &&impl)
+    : impl_{ std::move(impl) } {}
+
+template <typename Fp>
+sampling_subspace<Fp>::sampling_subspace(sampling_subspace<Fp> &&o)
+    : impl_{ std::move(o.impl_) } {}
+
+template <typename Fp> std::vector<i64> sampling_subspace<Fp>::sample() {
+  std::vector<i64> vec;
+  impl_->sample(vec);
+  return std::move(vec);
+}
+
+template <typename Fp> sampling_subspace<Fp>::~sampling_subspace<Fp>() {}
+
+template class l_kernel<float>;
+template class l_kernel<double>;
+
+template class sampling_subspace<float>;
+template class sampling_subspace<double>;
 }
