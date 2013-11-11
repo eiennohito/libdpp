@@ -11,9 +11,13 @@ project (libdpp)
 
 set(libdpp_INCLUDES ${libdpp_SOURCE_DIR}/include)
 
-find_package(MTL REQUIRED)
+find_package(Boost REQUIRED)
 
-add_definitions(${CXX_ELEVEN_FLAG})
+add_definitions("-std=c++11")
+
+include_directories(
+  ./libs/Eigen/
+)
 
 add_subdirectory (src)
 add_subdirectory (libs/gtest) 

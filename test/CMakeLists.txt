@@ -6,8 +6,11 @@ add_executable(dpp_tests
   ${sources}
 )
 
+message(${libdpp_BINARY_DIR})
+
 link_directories(
   ${gtest_LIBRARY_DIRECTORY}
+  ${libdpp_BINARY_DIR}
 )
 
 include_directories(
