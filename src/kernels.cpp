@@ -53,12 +53,13 @@ public:
     std::vector<i64> vec;
     vec.reserve(static_cast<i64>(sqrt(kernel_->rows()))); // reserve some memory
     auto &eigen_values = eigen_.eigenvalues().array();
-    auto probs = eigen_values / (eigen_values + 1);
 
     std::uniform_real_distribution<Fp> distr{ 0, 1 };
     for (i64 i = 0; i < eigen_values.cols(); ++i) {
       auto rn = distr(rng_);
-      if (rn < probs[i]) {
+      auto ev = eigen_values(i);
+      auto prob = ev / (ev + 1);
+      if (rn < prob) {
         vec.push_back(i);
       }
     }
@@ -95,7 +96,7 @@ public:
                          std::vector<i64> &&idxs)
       : kernel_{ kernel }, vec_indices_{ std::move(idxs) } {
     subspace_.resize(vec_indices_.size(), kernel_->cols());
-    reset();
+    //reset();
   }
 
   void reset() {
@@ -194,6 +195,7 @@ sampling_subspace<Fp>::sampling_subspace(sampling_subspace<Fp> &&o)
 
 template <typename Fp> std::vector<i64> sampling_subspace<Fp>::sample() {
   std::vector<i64> vec;
+  impl_->reset();
   impl_->sample(vec);
   return std::move(vec);
 }
