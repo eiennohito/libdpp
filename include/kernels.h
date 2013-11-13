@@ -18,6 +18,18 @@ template <typename Fp> class l_kernel_impl;
 template <typename Fp> class sampling_subspace_impl;
 
 template <typename Fp> class sampling_subspace;
+  
+  enum class TraceType {
+    SelectionVector,
+    ProbabilityDistribution
+  };
+  
+  template<typename Fp>
+  class tracer {
+  public:
+    virtual void trace(Fp* data, i64 count, TraceType type) = 0;
+    virtual ~tracer() {}
+  };
 
   template <typename Fp>
   class l_kernel {
@@ -29,19 +41,23 @@ template <typename Fp> class sampling_subspace;
     l_kernel(impl_ptr&& impl): impl_{std::move(impl)} {}
 
   public:
-    static l_kernel* from_array(Fp* data, int rows, int cols);
+    static l_kernel* from_array(Fp* data, i64 size);
 
     sampling_subspace<Fp> sampler();
+    
+    sampling_subspace<Fp> sampler(i64 k);
 
     ~l_kernel();
   };
 
   template <typename Fp> class sampling_subspace {
     std::unique_ptr<sampling_subspace_impl<Fp> > impl_;
-
+    
   public:
     sampling_subspace(std::unique_ptr<sampling_subspace_impl<Fp> > &&impl);
-
+    
+    void register_tracer(tracer<Fp>* ptr);
+    
     std::vector<i64> sample();
 
     sampling_subspace(sampling_subspace &&o);

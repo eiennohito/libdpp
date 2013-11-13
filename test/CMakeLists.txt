@@ -1,5 +1,6 @@
 set( sources
   main.cpp
+  kernels.cpp
 )
 
 add_executable(dpp_tests

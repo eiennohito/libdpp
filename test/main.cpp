@@ -37,9 +37,9 @@ TEST(MatrixTest, SimpleTest) {
 
   auto eig = eig_solver.eigenvalues();
   
-  std::cout << eig << std::endl;
-  std::cout << mat3 << std::endl;
-  std::cout << eig_solver.eigenvectors() << std::endl;
+//  std::cout << eig << std::endl;
+//  std::cout << mat3 << std::endl;
+//  std::cout << eig_solver.eigenvectors() << std::endl;
 }
 
 

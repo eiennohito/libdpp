@@ -10,6 +10,15 @@
 #include <random>
 #include <vector>
 
+#include <iostream>
+
+#ifndef NDEBUG
+#define DPP_ASSERT(x) assert(x)
+#else
+#define DPP_ASSERT(x)
+#endif
+
+
 namespace dpp {
 
 template <typename R, typename... T>
@@ -36,6 +45,8 @@ template <typename Fp> class l_kernel_impl {
   typedef typename eigen_typedefs<Fp>::vector vector_t;
   std::unique_ptr<kernel_t> kernel_;
   Eigen::SelfAdjointEigenSolver<kernel_t> eigen_;
+  
+  std::unique_ptr<kernel_t> polynomials_;
 
 public:
   mutable std::mt19937 rng_{ std::random_device()() };
@@ -66,6 +77,63 @@ public:
 
     return std::move(vec);
   }
+  
+  /***
+   To create a subsample k-DPP basis we need to compute
+   elementary symmetric polynomials.
+   
+   They are written to the (N + 1) \times (k + 1) matrix,
+   where N is the dimension of the kernel.
+   
+   This matrix is NOT 0-based, but 1-based, zeros are padding.
+   */
+  void compute_symmetric_polynomials(i64 k) {
+    if (!polynomials_) {
+      polynomials_ = make_unique<kernel_t>();
+    }
+    kernel_t& pols = *polynomials_;
+    
+    if (pols.cols() >= (k + 1)) { return; }
+    
+    auto &ev = eigen_.eigenvalues();
+    auto nrow = kernel_->rows();
+    pols.resize(nrow + 1, k + 1);
+    pols.row(0).setConstant(0);
+    pols.col(0).setConstant(1);
+    for (i64 l = 1; l <= k; ++l) {
+      for (i64 n = 1; n <= nrow; ++n) {
+        pols(n, l) = pols(n - 1, l) + ev(n - 1) * pols(n - 1, l - 1);
+      }
+    }
+  }
+  
+  //non-const because of the need to precompute
+  //symmetric polynomials
+  std::vector<i64> k_random_subspace_indices(i64 k) {
+    compute_symmetric_polynomials(k);
+    
+    std::vector<i64> res;
+    res.reserve(k);
+    
+    std::uniform_real_distribution<Fp> distr;
+    
+    auto l = k;
+    auto &ev = eigen_.eigenvalues();
+    auto &ep = *polynomials_; //1-based matrix
+    auto N = ev.size();
+    for (i64 n = N - 1; n >= 0; --n) { //because of zero-based indices n is less by 1
+      if (l == 0) break;
+      auto rv = distr(rng_);
+      // n-1, l-1 | n,l ; l is 1-based here, n is 0-based
+      auto prob = ev(n) * ep(n, l - 1) / ep(n + 1, l);
+      if (rv < prob) {
+        res.push_back(n);
+        --l;
+      }
+    }
+    
+    return std::move(res);
+  }
 
   auto eigenvector(i64 pos) const -> decltype(eigen_.eigenvectors().row(pos)) {
     return eigen_.eigenvectors().row(pos);
@@ -74,12 +142,14 @@ public:
   i64 cols() const { return kernel_->cols(); }
 
   sampling_subspace_impl<Fp> *sampler() const;
+  
+  sampling_subspace_impl<Fp> *sampler(i64 k);
 };
 
 template <typename Fp>
-l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, int rows, int cols) {
+l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, i64 size) {
   auto impl = make_unique<typename l_kernel<Fp>::impl_t>();
-  impl->init_from_kernel(data, rows, cols);
+  impl->init_from_kernel(data, size, size);
   impl->decompose();
   return new l_kernel<Fp>(std::move(impl));
 }
@@ -90,6 +160,7 @@ template <typename Fp> class sampling_subspace_impl {
   subspace_t subspace_;
   const l_kernel_impl<Fp> *kernel_;
   const std::vector<i64> vec_indices_;
+  tracer<Fp>* tracer_;
 
 public:
   sampling_subspace_impl(const l_kernel_impl<Fp> *kernel,
@@ -109,18 +180,49 @@ public:
   void gram_shmidt_orhonormailze() {
     auto height = subspace_.rows();
     for (i64 row = 0; row < height; ++row) {
-      auto pivot_row = subspace_.row(row);
-      pivot_row.normalize();
-      for (i64 other = row + 1; other < row; ++other) {
-        auto other_row = subspace_.row(other);
-        auto projection = other_row.dot(pivot_row);
-        other_row -= pivot_row * projection;
+      auto &&pivot_row = subspace_.row(row);
+      
+      auto norm = pivot_row.norm();
+      if (norm > 1e-10) {
+        pivot_row /= norm;
+      } else {
+        pivot_row.setZero();
+      }
+      //pivot_row.normalize();
+      
+      //DPP_ASSERT(std::abs(subspace_.row(row).norm() - 1) < 1e-15);
+      for (i64 other = row + 1; other < height; ++other) {
+        auto &&other_row = subspace_.row(other);
+        auto projection = other_row.dot(subspace_.row(row));
+        subspace_.row(other) -= (pivot_row * projection);
+        DPP_ASSERT(std::abs(subspace_.row(row).dot(subspace_.row(other))) < 1e-15);
       }
     }
+    
+    //subspace_t copy = subspace_;
+    Eigen::ColPivHouseholderQR<subspace_t> solver;
+    solver.compute(subspace_);
+    std::cout << "subspace has rank " << solver.rank() << "\n";
+    std::cout << "Our subspace is orthogonal: " << is_orthogonal() << "\n";
+  }
+  
+  bool is_orthogonal() const {
+    auto height = subspace_.rows();
+    bool result = true;
+    for (i64 row = 0; row < height; ++row) {
+      for (i64 other = row + 1; other < height; ++other) {
+        auto sim = subspace_.row(row).dot(subspace_.row(other));
+        if (std::abs(sim) > 1e-12) {
+          std::cout << "![" << row << ", " << other << ": " << sim << "] ";
+          result = false;
+        }
+      }
+    }
+    return result;
   }
 
 private:
-  typedef typename eigen_typedefs<Fp>::vector vector_t;
+  typedef typename Eigen::Matrix<Fp, 1, Eigen::Dynamic> vector_t;
   vector_t cached_;
 
 public:
@@ -142,8 +244,13 @@ public:
     }
 
     cached_.normalize();
+    
+    if (tracer_) {
+      tracer_->trace(cached_.data(), cached_.size(), TraceType::SelectionVector);
+    }
+    
     for (i64 i = 0; i < height; ++i) {
-      auto row = subspace_.row(i);
+      auto &&row = subspace_.row(i);
       auto proj = row.dot(cached_);
       row -= cached_ * proj;
     }
@@ -154,13 +261,23 @@ public:
     buffer.reserve(height);
 
     for (i64 i = 0; i < height; ++i) {
+      std::cout << "Initial subspace\n" << subspace_ << "\n";
+      
       cached_ = subspace_.colwise().squaredNorm(); // calculate probabilities
+      
+      std::cout << "weights for the selection are:\n" << cached_ << "\n";
+      
+      if (tracer_) {
+        tracer_->trace(cached_.data(), cached_.size(), TraceType::ProbabilityDistribution);
+      }
+      
       auto len = cached_.sum();
       std::uniform_real_distribution<Fp> distr{ 0, len };
       auto prob = distr(kernel_->rng_);
       i64 selected = 0;
       Fp val = 0;
-      for (; selected < cached_.cols(); ++selected) {
+      auto total = cached_.size();
+      for (; selected < total; ++selected) {
         val += cached_[selected];
         if (val > prob)
           break;
@@ -168,14 +285,31 @@ public:
 
       buffer.push_back(selected);
       orthogonal_subspace(selected);
+      std::cout << "Subspace: removed " << selected << "-th component\n" << subspace_ << "\n";
       gram_shmidt_orhonormailze();
     }
   }
+  
+  void register_tracer(tracer<Fp>* ptr) {
+    tracer_ = ptr;
+  }
 };
+  
+  
 template <typename Fp>
 sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler() const {
   return new sampling_subspace_impl<Fp>{ this, random_subspace_indices() };
 }
+  
+  template<typename Fp>
+  sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler(i64 k) {
+    return new sampling_subspace_impl<Fp>{ this, k_random_subspace_indices(k) };
+  }
+  
+  template<typename Fp>
+  void sampling_subspace<Fp>::register_tracer(tracer<Fp> *ptr) {
+    impl_->register_tracer(ptr);
+  }
 
 template <typename Fp> l_kernel<Fp>::~l_kernel<Fp>() {}
 
@@ -183,6 +317,11 @@ template <typename Fp> sampling_subspace<Fp> l_kernel<Fp>::sampler() {
   auto impl = impl_->sampler();
   return sampling_subspace<Fp>{ make_unique(impl) };
 }
+  
+  template <typename Fp> sampling_subspace<Fp> l_kernel<Fp>::sampler(i64 k) {
+    auto impl = impl_->sampler(k);
+    return sampling_subspace<Fp>{ make_unique(impl) };
+  }
 
 template <typename Fp>
 sampling_subspace<Fp>::sampling_subspace(
