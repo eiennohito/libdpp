@@ -6,16 +6,14 @@
 #include <Dense>
 #include <Eigenvalues>
 
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+matrix;
 
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> matrix;
-
-TEST(SomeTest, Test) {
-  EXPECT_EQ(0, 0);
-}
+TEST(SomeTest, Test) { EXPECT_EQ(0, 0); }
 
 TEST(SomeTest, Cpp11Feature) {
   auto c = 2;
-  auto f = [](int x ) { return 3; };
+  auto f = [](int x) { return 3; };
   f(c);
 }
 
@@ -28,7 +26,7 @@ TEST(MatrixTest, SimpleTest) {
       mat(i, j) = distr(gen);
     }
   }
-  
+
   auto mat3 = mat.transpose() * mat;
 
   Eigen::SelfAdjointEigenSolver<matrix> eig_solver;
@@ -36,14 +34,13 @@ TEST(MatrixTest, SimpleTest) {
   eig_solver.compute(mat3);
 
   auto eig = eig_solver.eigenvalues();
-  
-//  std::cout << eig << std::endl;
-//  std::cout << mat3 << std::endl;
-//  std::cout << eig_solver.eigenvectors() << std::endl;
+
+  //  std::cout << eig << std::endl;
+  //  std::cout << mat3 << std::endl;
+  //  std::cout << eig_solver.eigenvectors() << std::endl;
 }
 
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   std::cout << "Running tests from gtest\n";
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
