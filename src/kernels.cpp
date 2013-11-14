@@ -38,31 +38,26 @@ template <typename Fp> struct eigen_typedefs {
   typedef Eigen::Matrix<Fp, Eigen::Dynamic, 1> vector;
 };
 
-template <typename Fp> class l_kernel_impl {
+template <typename Derived, typename Fp> class base_kernel {
+
+protected:
+  Derived &derived() { return static_cast<Derived &>(*this); }
+
+  const Derived &derived() const { return static_cast<const Derived &>(*this); }
 
   typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
-  typedef typename eigen_typedefs<Fp>::vector vector_t;
-  std::unique_ptr<kernel_t> kernel_;
-  Eigen::SelfAdjointEigenSolver<kernel_t> eigen_;
 
+  Eigen::SelfAdjointEigenSolver<kernel_t> eigen_;
   std::unique_ptr<kernel_t> polynomials_;
 
 public:
   mutable std::mt19937 rng_{ std::random_device()() };
 
-  void init_from_kernel(Fp *data, int rows, int cols) {
-    typedef typename eigen_typedefs<Fp>::matrix_rowmajor outer_t;
-    Eigen::Map<outer_t> outer(data, rows, cols);
-    kernel_ = make_unique<kernel_t>(rows, cols);
-    *kernel_ = outer;
-  }
-
-  void decompose() { eigen_.compute(*kernel_); }
-
   std::vector<i64> random_subspace_indices() const {
     std::vector<i64> vec;
-    vec.reserve(static_cast<i64>(sqrt(kernel_->rows()))); // reserve some memory
-    auto &eigen_values = eigen_.eigenvalues().array();
+    vec.reserve(static_cast<i64>(
+        sqrt(derived().kernel().rows()))); // reserve some memory
+    auto &eigen_values = eigenvalues().array();
 
     std::uniform_real_distribution<Fp> distr{ 0, 1 };
     for (i64 i = 0; i < eigen_values.cols(); ++i) {
@@ -96,8 +91,8 @@ public:
       return;
     }
 
-    auto &ev = eigen_.eigenvalues();
-    auto nrow = kernel_->rows();
+    auto &ev = this->eigenvalues();
+    auto nrow = derived().kernel().rows();
     pols.resize(nrow + 1, k + 1);
     pols.row(0).setConstant(0);
     pols.col(0).setConstant(1);
@@ -119,14 +114,14 @@ public:
     std::uniform_real_distribution<Fp> distr;
 
     auto l = k;
-    auto &ev = eigen_.eigenvalues();
+    auto &ev = this->eigenvalues();
     auto &ep = *polynomials_; // 1-based matrix
     auto N = ev.size();
     for (i64 n = N - 1; n >= 0;
          --n) { // because of zero-based indices n is less by 1
       if (l == 0)
         break;
-      auto rv = distr(rng_);
+      auto rv = distr(this->rng_);
       // n-1, l-1 | n,l ; l is 1-based here, n is 0-based
       auto prob = ev(n) * ep(n, l - 1) / ep(n + 1, l);
       if (rv < prob) {
@@ -138,11 +133,41 @@ public:
     return std::move(res);
   }
 
+  void decompose() { eigen_.compute(derived().kernel()); }
+
   auto eigenvector(i64 pos) const -> decltype(eigen_.eigenvectors().row(pos)) {
     return eigen_.eigenvectors().row(pos);
   }
 
-  i64 cols() const { return kernel_->cols(); }
+  auto eigenvectors() const -> decltype(eigen_.eigenvectors()) {
+    return eigen_.eigenvectors();
+  }
+
+  auto eigenvalues() const -> decltype(eigen_.eigenvalues()) {
+    return eigen_.eigenvalues();
+  }
+
+  i64 cols() const { return derived().kernel().cols(); }
+};
+
+template <typename Fp>
+class l_kernel_impl : public base_kernel<l_kernel_impl<Fp>, Fp> {
+
+  typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
+  // typedef typename eigen_typedefs<Fp>::vector vector_t;
+
+  std::unique_ptr<kernel_t> kernel_;
+
+public:
+  kernel_t &kernel() { return *kernel_; }
+  const kernel_t &kernel() const { return *kernel_; }
+
+  void init_from_kernel(Fp *data, int rows, int cols) {
+    typedef typename eigen_typedefs<Fp>::matrix_rowmajor outer_t;
+    Eigen::Map<outer_t> outer(data, rows, cols);
+    kernel_ = make_unique<kernel_t>(rows, cols);
+    *kernel_ = outer;
+  }
 
   sampling_subspace_impl<Fp> *sampler() const;
 
@@ -302,12 +327,14 @@ public:
 
 template <typename Fp>
 sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler() const {
-  return new sampling_subspace_impl<Fp>{ this, random_subspace_indices() };
+  return new sampling_subspace_impl<Fp>{ this,
+                                         this->random_subspace_indices() };
 }
 
 template <typename Fp>
 sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler(i64 k) {
-  return new sampling_subspace_impl<Fp>{ this, k_random_subspace_indices(k) };
+  return new sampling_subspace_impl<Fp>{ this,
+                                         this->k_random_subspace_indices(k) };
 }
 
 template <typename Fp>
