@@ -14,6 +14,10 @@
 #include <algorithm>
 #include <memory>
 
+template <typename T> std::unique_ptr<T> wrap_ptr(T *ptr) {
+  return std::unique_ptr<T>(ptr);
+}
+
 class KernelTest : public ::testing::Test {};
 
 template <typename Fp> class storing_tracer : public dpp::tracer<Fp> {
@@ -78,4 +82,39 @@ TEST_F(KernelTest, RandomKdpp) {
   std::unique_copy(std::begin(items), std::end(items),
                    std::back_inserter(unique));
   EXPECT_EQ(5, unique.size());
+}
+
+TEST_F(KernelTest, DualKernel) {
+  const i64 dim = 6;
+  double data[][dim] = { { 1, 0, 0, 0, 0, 0 },
+                         { 0, 1, 1, 0, 0, 0 },
+                         { 0, 0, 1, 0, 0, 0.2 },
+                         { 1, 1, 0, 0, 0, 0 },
+                         { 1, 1, 1, 0, 0, 0.1 },
+                         { 1, 0, 0.1, 0, 1, 0 },
+                         { 0.1, 1, 1, 0, 0, 0 },
+                         { 0.1, 1, 0.1, 0, 0, 0 },
+                         { 1, 1, 1, 1, 1, 1 },
+                         { 1, 0, 0, 0, 1, 1 },
+                         { 0, 0, 0, 1, 1, 1 } };
+
+  i64 idxs[] = { 0, 1, 2 };
+
+  dpp::c_kernel_builder<double> bldr(dim, dim);
+  i64 row_cnt = sizeof(data) / (sizeof(double) * dim);
+  bldr.hint_size(row_cnt);
+  for (i64 row = 0; row < row_cnt; ++row) {
+    bldr.append(data[row], idxs, 3);
+  }
+
+  auto kernel = wrap_ptr(bldr.build_kernel());
+  auto sampler = wrap_ptr(kernel->sampler(3));
+
+  auto res = sampler->sample();
+
+  std::cout << "Selected";
+  for (auto i : res) {
+    std::cout << i << "\t";
+  }
+  std::cout << "\n";
 }

@@ -103,6 +103,7 @@ public:
         pols(n, l) = pols(n - 1, l) + ev(n - 1) * pols(n - 1, l - 1);
       }
     }
+    std::cout << "Computed elementary polynomials:\n" << pols << "\n";
   }
 
   // non-const because of the need to precompute
@@ -441,7 +442,9 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
   // here C is our dual DPP-kernel, a and b are D-dimensional vectors
   template <typename Vec1, typename Vec2>
   Fp energy_product(Vec1 &&v1, Vec2 &&v2) const {
-    return (v1.adjoint() * kernel_->kernel()).col(0).dot(v2);
+    auto &&product = (v1 * kernel_->kernel());
+    DPP_ASSERT(product.cols() == v2.cols() && product.rows() == 1);
+    return product.row(0).dot(v2);
   }
 
   std::vector<i64> items_;
@@ -466,7 +469,8 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
   }
 
 public:
-  c_sampler_impl(std::vector<i64> &&items) : items_{ std::move(items) } {}
+  c_sampler_impl(c_kernel_impl<Fp> *kernel, std::vector<i64> &&items)
+      : kernel_{ kernel }, items_{ std::move(items) } {}
 
   void sample(std::vector<i64> &res) {
     res.clear();
@@ -558,7 +562,7 @@ template <typename Fp> class c_kernel_builder_impl {
   matrix_t matrix_;
   projection_t projection_;
 
-  i64 from_, to_, row_;
+  i64 from_ = 0, to_ = 0, row_ = 0;
 
   void check_sizes() {
     if (matrix_.rows() <= row_) {
@@ -605,6 +609,7 @@ public:
   }
 
   c_kernel_impl<Fp> *build() {
+    matrix_.conservativeResize(row_, to_);
     return new c_kernel_impl<Fp>(std::move(matrix_));
   }
 };
@@ -620,19 +625,26 @@ void c_kernel_builder<Fp>::append(Fp *data, i64 *idxes, i64 size) {
 
 template <typename Fp> c_kernel<Fp> *c_kernel_builder<Fp>::build_kernel() {
   c_kernel_impl<Fp> *impl = impl_->build();
+  impl->decompose();
   return new c_kernel<Fp>(impl);
 }
 
+template <typename Fp> void c_kernel_builder<Fp>::hint_size(i64 size) {
+  impl_->hint_size(size);
+}
+
+template <typename Fp> c_kernel_builder<Fp>::~c_kernel_builder() {}
+
 template <typename Fp> dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler() {
   auto &&items = impl_->random_subspace_indices();
-  auto impl = new c_sampler_impl<Fp>(std::move(items));
+  auto impl = new c_sampler_impl<Fp>(impl_.get(), std::move(items));
   return new dual_sampling_subspace<Fp>(make_unique(impl));
 }
 
 template <typename Fp>
 dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler(i64 k) {
   auto &&items = impl_->k_random_subspace_indices(k);
-  auto impl = new c_sampler_impl<Fp>(std::move(items));
+  auto impl = new c_sampler_impl<Fp>(impl_.get(), std::move(items));
   return new dual_sampling_subspace<Fp>(make_unique(impl));
 }
 

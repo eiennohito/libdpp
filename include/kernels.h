@@ -72,6 +72,7 @@ public:
   c_kernel_builder(i64 from_dim, i64 to_dim);
   c_kernel<Fp> *build_kernel();
   void append(Fp *data, i64 *indices, i64 size);
+  void hint_size(i64 size);
   ~c_kernel_builder();
 };
 
