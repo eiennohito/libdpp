@@ -186,7 +186,7 @@ l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, i64 size) {
 
 template <typename Derived, typename Fp>
 class base_sampler_impl : public base_object<Derived> {
-
+public:
   typedef typename eigen_typedefs<Fp>::matrix_rowmajor subspace_t;
 
 protected:
@@ -434,14 +434,14 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
 
   typedef typename base_sampler_impl<c_sampler_impl<Fp>, Fp>::subspace_t
   subspace_t;
-  typedef typename eigen_typedefs<Fp>::vector_t vector_t;
+  typedef Eigen::Matrix<Fp, 1, Eigen::Dynamic> vector_t;
 
   // dual kernel operates in terms of energy products (a' * C * b) instead of
   // dot products
   // here C is our dual DPP-kernel, a and b are D-dimensional vectors
   template <typename Vec1, typename Vec2>
   Fp energy_product(Vec1 &&v1, Vec2 &&v2) const {
-    return (v1.adjoint() * this->kernel().kernel()).dot(v2);
+    return (v1.adjoint() * kernel_->kernel()).col(0).dot(v2);
   }
 
   std::vector<i64> items_;
@@ -609,9 +609,60 @@ public:
   }
 };
 
+template <typename Fp>
+c_kernel_builder<Fp>::c_kernel_builder(i64 from, i64 to)
+    : impl_{ new c_kernel_builder_impl<Fp>(from, to) } {}
+
+template <typename Fp>
+void c_kernel_builder<Fp>::append(Fp *data, i64 *idxes, i64 size) {
+  impl_->append(data, idxes, size);
+}
+
+template <typename Fp> c_kernel<Fp> *c_kernel_builder<Fp>::build_kernel() {
+  c_kernel_impl<Fp> *impl = impl_->build();
+  return new c_kernel<Fp>(impl);
+}
+
+template <typename Fp> dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler() {
+  auto &&items = impl_->random_subspace_indices();
+  auto impl = new c_sampler_impl<Fp>(std::move(items));
+  return new dual_sampling_subspace<Fp>(make_unique(impl));
+}
+
+template <typename Fp>
+dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler(i64 k) {
+  auto &&items = impl_->k_random_subspace_indices(k);
+  auto impl = new c_sampler_impl<Fp>(std::move(items));
+  return new dual_sampling_subspace<Fp>(make_unique(impl));
+}
+
+template <typename Fp> c_kernel<Fp>::~c_kernel<Fp>() {}
+
+template <typename Fp>
+void dual_sampling_subspace<Fp>::sample(std::vector<i64> &res) {
+  impl_->sample(res);
+}
+
+template <typename Fp> std::vector<i64> dual_sampling_subspace<Fp>::sample() {
+  std::vector<i64> res;
+  sample(res);
+  return std::move(res);
+}
+
+template <typename Fp> dual_sampling_subspace<Fp>::~dual_sampling_subspace() {}
+
 template class l_kernel<float>;
 template class l_kernel<double>;
 
 template class sampling_subspace<float>;
 template class sampling_subspace<double>;
+
+template class c_kernel_builder<float>;
+template class c_kernel_builder<double>;
+
+template class c_kernel<float>;
+template class c_kernel<double>;
+
+template class dual_sampling_subspace<float>;
+template class dual_sampling_subspace<double>;
 }

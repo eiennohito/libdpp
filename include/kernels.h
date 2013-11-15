@@ -13,10 +13,13 @@ using i64 = std::int64_t;
 namespace dpp {
 
 template <typename Fp> class l_kernel_impl;
-
 template <typename Fp> class sampling_subspace_impl;
-
 template <typename Fp> class sampling_subspace;
+template <typename Fp> class c_kernel_impl;
+template <typename Fp> class dual_sampling_subspace;
+template <typename Fp> class c_kernel;
+template <typename Fp> class c_kernel_builder_impl;
+template <typename Fp> class c_sampler_impl;
 
 enum class TraceType {
   SelectionVector,
@@ -60,6 +63,41 @@ public:
   sampling_subspace(sampling_subspace &&o);
 
   ~sampling_subspace();
+};
+
+template <typename Fp> class c_kernel_builder {
+  std::unique_ptr<c_kernel_builder_impl<Fp> > impl_;
+
+public:
+  c_kernel_builder(i64 from_dim, i64 to_dim);
+  c_kernel<Fp> *build_kernel();
+  void append(Fp *data, i64 *indices, i64 size);
+  ~c_kernel_builder();
+};
+
+template <typename Fp> class c_kernel {
+  std::unique_ptr<c_kernel_impl<Fp> > impl_;
+
+public:
+  c_kernel(c_kernel_impl<Fp> *impl) : impl_{ impl } {}
+
+  dual_sampling_subspace<Fp> *sampler();
+  dual_sampling_subspace<Fp> *sampler(i64 k);
+
+  ~c_kernel();
+};
+
+template <typename Fp> class dual_sampling_subspace {
+  std::unique_ptr<c_sampler_impl<Fp> > impl_;
+
+public:
+  dual_sampling_subspace(std::unique_ptr<c_sampler_impl<Fp> > &&impl)
+      : impl_{ std::move(impl) } {}
+
+  void sample(std::vector<i64> &res);
+  std::vector<i64> sample();
+
+  ~dual_sampling_subspace();
 };
 
 extern template class l_kernel<float>;
