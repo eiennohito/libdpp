@@ -103,6 +103,8 @@ public:
         pols(n, l) = pols(n - 1, l) + ev(n - 1) * pols(n - 1, l - 1);
       }
     }
+    
+#ifdef DPP_TRACE_SAMPLE
     std::cout << "Eigenvalues are: " << ev << "\n";
     std::cout << "Computed elementary polynomials:\n" << pols << "\n";
     
@@ -114,6 +116,7 @@ public:
     }
     
     std::cout << "Probabilities to select are:\n" << probs << "\n";
+#endif
   }
 
   // non-const because of the need to precompute
@@ -250,7 +253,7 @@ protected:
   }
 
 private:
-  tracer<Fp> *tracer_;
+  tracer<Fp> *tracer_ = 0;
 
 protected:
   void trace(Fp *data, i64 size, TraceType ttype) {
@@ -480,7 +483,7 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
 
 public:
   c_sampler_impl(c_kernel_impl<Fp> *kernel, std::vector<i64> &&items)
-      : kernel_{ kernel }, items_{ std::move(items) } {}
+      : items_{ std::move(items) }, kernel_{ kernel } {}
 
   void sample(std::vector<i64> &res) {
     reset();
@@ -496,6 +499,9 @@ public:
       probs_ =
           (subspace_ * kernel_->matrix().adjoint()).colwise().squaredNorm();
       Fp sum = probs_.sum();
+      
+      this->trace(probs_.data(), probs_.size(), TraceType::ProbabilityDistribution);
+      
       std::uniform_real_distribution<Fp> distr{ 0, sum };
       Fp randval = distr(rng);
       Fp cur = 0;
@@ -518,14 +524,17 @@ public:
     auto &&item = kernel_->matrix().row(selected);
 
     i64 height = subspace_.rows();
-    i64 pivot;
-    Fp pivot_prod;
+    i64 pivot, sel_pivot;
+    Fp pivot_prod = 0;
     for (pivot = 0; pivot < height; ++pivot) {
-      pivot_prod = item.dot(subspace_.row(pivot));
-      if (std::abs(pivot_prod) > 1e-6) {
-        break;
+      Fp test = item.dot(subspace_.row(pivot));
+      if (std::abs(test) > std::abs(pivot_prod)) {
+        pivot_prod = test;
+        sel_pivot = pivot;
       }
     }
+    
+    pivot = sel_pivot;
 
     auto &&pivot_row = subspace_.row(pivot);
 
@@ -534,6 +543,8 @@ public:
         auto &&row = subspace_.row(i);
         Fp sim = item.dot(row);
         row -= (pivot_row * sim / pivot_prod);
+        
+        DPP_ASSERT(std::abs(item.dot(row)) < 1e-10);
       }
     }
 
@@ -557,10 +568,9 @@ public:
       // DPP_ASSERT(std::abs(subspace_.row(row).norm() - 1) < 1e-15);
       for (i64 other = row + 1; other < height; ++other) {
         auto &&other_row = subspace_.row(other);
-        auto projection = energy_product(other_row, subspace_.row(row));
+        auto projection = energy_product(other_row, pivot_row);
         subspace_.row(other) -= (pivot_row * projection);
-        DPP_ASSERT(std::abs(energy_product(subspace_.row(row),
-                                           subspace_.row(other))) < 1e-15);
+        DPP_ASSERT(std::abs(energy_product(subspace_.row(other), pivot_row)) < 1e-15);
       }
     }
   }
@@ -577,7 +587,8 @@ template <typename Fp> class c_kernel_builder_impl {
 
   void check_sizes() {
     if (matrix_.rows() <= row_) {
-      matrix_.conservativeResize(row_ + 1, to_);
+      i64 sz = std::max(static_cast<i64>(row_ * 1.4), row_ + 5);
+      matrix_.conservativeResize(sz, to_);
     }
   }
 
@@ -671,6 +682,11 @@ template <typename Fp> std::vector<i64> dual_sampling_subspace<Fp>::sample() {
   sample(res);
   return std::move(res);
 }
+  
+  template<typename Fp>
+  void dual_sampling_subspace<Fp>::register_tracer(tracer<Fp> *t) {
+    impl_->register_tracer(t);
+  }
 
 template <typename Fp> dual_sampling_subspace<Fp>::~dual_sampling_subspace() {}
 

@@ -97,6 +97,8 @@ public:
 
   void sample(std::vector<i64> &res);
   std::vector<i64> sample();
+  
+  void register_tracer(tracer<Fp>* t);
 
   ~dual_sampling_subspace();
 };
