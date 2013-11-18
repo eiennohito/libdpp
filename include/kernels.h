@@ -1,12 +1,10 @@
 #ifndef DPP_KERNEL_H
 #define DPP_KERNEL_H 1
 
+#include <vector>
 #include <memory>
 
-#include <cstdint>
-#include <vector>
-
-using i64 = std::int64_t;
+typedef long long i64;
 
 //#include <boost/preprocessor.hpp>
 
