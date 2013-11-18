@@ -103,18 +103,18 @@ public:
         pols(n, l) = pols(n - 1, l) + ev(n - 1) * pols(n - 1, l - 1);
       }
     }
-    
+
 #ifdef DPP_TRACE_SAMPLE
     std::cout << "Eigenvalues are: " << ev << "\n";
     std::cout << "Computed elementary polynomials:\n" << pols << "\n";
-    
+
     kernel_t probs(nrow, k);
     for (i64 l = 0; l < k; ++l) {
       for (i64 n = 0; n < nrow; ++n) {
         probs(n, l) = ev(n) * pols(n, l) / pols(n + 1, l + 1);
       }
     }
-    
+
     std::cout << "Probabilities to select are:\n" << probs << "\n";
 #endif
   }
@@ -487,7 +487,7 @@ public:
 
   void sample(std::vector<i64> &res) {
     reset();
-    
+
     res.clear();
 
     i64 times = subspace_.rows();
@@ -499,9 +499,10 @@ public:
       probs_ =
           (subspace_ * kernel_->matrix().adjoint()).colwise().squaredNorm();
       Fp sum = probs_.sum();
-      
-      this->trace(probs_.data(), probs_.size(), TraceType::ProbabilityDistribution);
-      
+
+      this->trace(probs_.data(), probs_.size(),
+                  TraceType::ProbabilityDistribution);
+
       std::uniform_real_distribution<Fp> distr{ 0, sum };
       Fp randval = distr(rng);
       Fp cur = 0;
@@ -533,7 +534,7 @@ public:
         sel_pivot = pivot;
       }
     }
-    
+
     pivot = sel_pivot;
 
     auto &&pivot_row = subspace_.row(pivot);
@@ -543,7 +544,7 @@ public:
         auto &&row = subspace_.row(i);
         Fp sim = item.dot(row);
         row -= (pivot_row * sim / pivot_prod);
-        
+
         DPP_ASSERT(std::abs(item.dot(row)) < 1e-10);
       }
     }
@@ -570,7 +571,8 @@ public:
         auto &&other_row = subspace_.row(other);
         auto projection = energy_product(other_row, pivot_row);
         subspace_.row(other) -= (pivot_row * projection);
-        DPP_ASSERT(std::abs(energy_product(subspace_.row(other), pivot_row)) < 1e-15);
+        DPP_ASSERT(std::abs(energy_product(subspace_.row(other), pivot_row)) <
+                   1e-15);
       }
     }
   }
@@ -682,11 +684,11 @@ template <typename Fp> std::vector<i64> dual_sampling_subspace<Fp>::sample() {
   sample(res);
   return std::move(res);
 }
-  
-  template<typename Fp>
-  void dual_sampling_subspace<Fp>::register_tracer(tracer<Fp> *t) {
-    impl_->register_tracer(t);
-  }
+
+template <typename Fp>
+void dual_sampling_subspace<Fp>::register_tracer(tracer<Fp> *t) {
+  impl_->register_tracer(t);
+}
 
 template <typename Fp> dual_sampling_subspace<Fp>::~dual_sampling_subspace() {}
 
