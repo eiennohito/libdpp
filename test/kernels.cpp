@@ -113,7 +113,7 @@ TEST_F(KernelTest, DualKernel) {
 
   auto res = sampler->sample();
 
-  std::cout << "Selected";
+  std::cout << "Selected: ";
   for (auto i : res) {
     std::cout << i << "\t";
   }
