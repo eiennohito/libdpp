@@ -43,9 +43,9 @@ template <typename Fp> class l_kernel {
 public:
   static l_kernel *from_array(Fp *data, i64 size);
 
-  sampling_subspace<Fp> sampler();
+  sampling_subspace<Fp>* sampler();
 
-  sampling_subspace<Fp> sampler(i64 k);
+  sampling_subspace<Fp>* sampler(i64 k);
 
   ~l_kernel();
 };

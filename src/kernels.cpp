@@ -386,14 +386,14 @@ void sampling_subspace<Fp>::register_tracer(tracer<Fp> *ptr) {
 
 template <typename Fp> l_kernel<Fp>::~l_kernel<Fp>() {}
 
-template <typename Fp> sampling_subspace<Fp> l_kernel<Fp>::sampler() {
+template <typename Fp> sampling_subspace<Fp>* l_kernel<Fp>::sampler() {
   auto impl = impl_->sampler();
-  return sampling_subspace<Fp>{ make_unique(impl) };
+  return new sampling_subspace<Fp>{ make_unique(impl) };
 }
 
-template <typename Fp> sampling_subspace<Fp> l_kernel<Fp>::sampler(i64 k) {
+template <typename Fp> sampling_subspace<Fp>* l_kernel<Fp>::sampler(i64 k) {
   auto impl = impl_->sampler(k);
-  return sampling_subspace<Fp>{ make_unique(impl) };
+  return new sampling_subspace<Fp>{ make_unique(impl) };
 }
 
 template <typename Fp>

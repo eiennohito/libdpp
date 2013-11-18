@@ -60,12 +60,12 @@ TEST_F(KernelTest, RandomKdpp) {
   std::unique_ptr<dpp::l_kernel<double> > kern(
       dpp::l_kernel<double>::from_array(mat2.data(), 10));
 
-  auto ksamp = kern->sampler(5);
+  auto ksamp = wrap(kern->sampler(5));
 
   auto tracer = std::make_shared<storing_tracer<double> >();
-  ksamp.register_tracer(tracer.get());
+  ksamp->register_tracer(tracer.get());
 
-  auto items = ksamp.sample();
+  auto items = ksamp->sample();
 
   std::cout << "Probabilities are:\n" << tracer->probs() << "\n";
 
