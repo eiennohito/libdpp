@@ -23,3 +23,5 @@ add_subdirectory (src)
 add_subdirectory (libs/gtest) 
 
 add_subdirectory (test)
+
+add_subdirectory(word_similarity)
