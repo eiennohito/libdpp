@@ -35,6 +35,7 @@ public:
       auto rows = probs_.rows();
       probs_.conservativeResize(rows + 1, size);
       probs_.row(rows) = vector_map(data, size);
+      probs_.row(rows).normalize();
     }
   }
 
@@ -86,25 +87,25 @@ TEST_F(KernelTest, RandomKdpp) {
 
 TEST_F(KernelTest, DualKernel) {
   const i64 dim = 6;
-  double data[][dim] = { { 1, 0, 0, 0, 0, 0 },
+  double data[][dim] = { { 1, 0, 0, 0, 0.1, 0 },
                          { 0, 1, 1, 0, 0, 0 },
                          { 0, 0, 1, 0, 0, 0.2 },
-                         { 1, 1, 0, 0, 0, 0 },
+                         { 1, 1, 0, 0.1, 0, 0 },
                          { 1, 1, 1, 0, 0, 0.1 },
                          { 1, 0, 0.1, 0, 1, 0 },
-                         { 0.1, 1, 1, 0, 0, 0 },
+                         { 0.1, 1, 1, 0, 0.1, 0 },
                          { 0.1, 1, 0.1, 0, 0, 0 },
                          { 1, 1, 1, 1, 1, 1 },
                          { 1, 0, 0, 0, 1, 1 },
-                         { 0, 0, 0, 1, 1, 1 } };
+                         { 0, 0.1, 0, 1, 1, 1 } };
 
-  i64 idxs[] = { 0, 1, 2 };
+  i64 idxs[] = { 0, 1, 2, 3, 4, 5 };
 
   dpp::c_kernel_builder<double> bldr(dim, dim);
   i64 row_cnt = sizeof(data) / (sizeof(double) * dim);
   bldr.hint_size(row_cnt);
   for (i64 row = 0; row < row_cnt; ++row) {
-    bldr.append(data[row], idxs, 3);
+    bldr.append(data[row], idxs, dim);
   }
 
   auto kernel = wrap_ptr(bldr.build_kernel());

@@ -103,7 +103,17 @@ public:
         pols(n, l) = pols(n - 1, l) + ev(n - 1) * pols(n - 1, l - 1);
       }
     }
+    std::cout << "Eigenvalues are: " << ev << "\n";
     std::cout << "Computed elementary polynomials:\n" << pols << "\n";
+    
+    kernel_t probs(nrow, k);
+    for (i64 l = 0; l < k; ++l) {
+      for (i64 n = 0; n < nrow; ++n) {
+        probs(n, l) = ev(n) * pols(n, l) / pols(n + 1, l + 1);
+      }
+    }
+    
+    std::cout << "Probabilities to select are:\n" << probs << "\n";
   }
 
   // non-const because of the need to precompute
@@ -473,11 +483,12 @@ public:
       : kernel_{ kernel }, items_{ std::move(items) } {}
 
   void sample(std::vector<i64> &res) {
+    reset();
+    
     res.clear();
 
     i64 times = subspace_.rows();
     res.reserve(times);
-    reset();
 
     auto &rng = kernel_->rng_;
 
