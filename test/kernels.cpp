@@ -9,25 +9,27 @@
 #include "gtest/gtest.h"
 
 #include "kernels.h"
-#include <Dense>
+#include <Eigen/Dense>
 
 #include <algorithm>
 #include <memory>
 
-template <typename T> std::unique_ptr<T> wrap_ptr(T *ptr) {
+template <typename T>
+std::unique_ptr<T> wrap_ptr(T *ptr) {
   return std::unique_ptr<T>(ptr);
 }
 
 class KernelTest : public ::testing::Test {};
 
-template <typename Fp> class storing_tracer : public dpp::tracer<Fp> {
+template <typename Fp>
+class storing_tracer : public dpp::tracer<Fp> {
   typedef typename Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic> matrix_t;
   typedef typename Eigen::Matrix<Fp, 1, Eigen::Dynamic> vector_t;
 
   matrix_t vectors_;
   matrix_t probs_;
 
-public:
+ public:
   void trace(Fp *data, i64 size, dpp::TraceType type) override {
     typedef Eigen::Map<vector_t> vector_map;
 
@@ -44,7 +46,7 @@ public:
 
 TEST_F(KernelTest, Load) {
   using namespace dpp;
-  float data[] = { 1, 2, 6, 2, 4, 1, 6, 1, 9 };
+  float data[] = {1, 2, 6, 2, 4, 1, 6, 1, 9};
 
   auto k = l_kernel<float>::from_array(data, 3);
   auto sampler = k->sampler();
@@ -87,19 +89,19 @@ TEST_F(KernelTest, RandomKdpp) {
 
 TEST_F(KernelTest, DualKernel) {
   const i64 dim = 6;
-  double data[][dim] = { { 1, 0, 0, 0, 0.1, 0 },
-                         { 0, 1, 1, 0, 0, 0 },
-                         { 0, 0, 1, 0, 0, 0.2 },
-                         { 1, 1, 0, 0.1, 0, 0 },
-                         { 1, 1, 1, 0, 0, 0.1 },
-                         { 1, 0, 0.1, 0, 1, 0 },
-                         { 0.1, 1, 1, 0, 0.1, 0 },
-                         { 0.1, 1, 0.1, 0, 0, 0 },
-                         { 1, 1, 1, 1, 1, 1 },
-                         { 1, 0, 0, 0, 1, 1 },
-                         { 0, 0.1, 0, 1, 1, 1 } };
+  double data[][dim] = {{1, 0, 0, 0, 0.1, 0},
+                        {0, 1, 1, 0, 0, 0},
+                        {0, 0, 1, 0, 0, 0.2},
+                        {1, 1, 0, 0.1, 0, 0},
+                        {1, 1, 1, 0, 0, 0.1},
+                        {1, 0, 0.1, 0, 1, 0},
+                        {0.1, 1, 1, 0, 0.1, 0},
+                        {0.1, 1, 0.1, 0, 0, 0},
+                        {1, 1, 1, 1, 1, 1},
+                        {1, 0, 0, 0, 1, 1},
+                        {0, 0.1, 0, 1, 1, 1}};
 
-  i64 idxs[] = { 0, 1, 2, 3, 4, 5 };
+  i64 idxs[] = {0, 1, 2, 3, 4, 5};
 
   dpp::c_kernel_builder<double> bldr(dim, dim);
   i64 row_cnt = sizeof(data) / (sizeof(double) * dim);

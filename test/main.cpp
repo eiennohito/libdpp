@@ -3,11 +3,11 @@
 
 #include <random>
 
-#include <Dense>
-#include <Eigenvalues>
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-matrix;
+    matrix;
 
 TEST(SomeTest, Test) { EXPECT_EQ(0, 0); }
 
