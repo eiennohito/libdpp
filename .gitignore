@@ -1,3 +1,4 @@
 #this is a git ignore file
 
+.DS_Store
 *.sublime-workspace
