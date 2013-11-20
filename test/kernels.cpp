@@ -48,7 +48,7 @@ TEST_F(KernelTest, Load) {
 
   auto k = l_kernel<float>::from_array(data, 3);
   auto sampler = k->sampler();
-  auto items = sampler.sample();
+  auto items = sampler->sample();
   delete k;
 }
 
@@ -60,7 +60,7 @@ TEST_F(KernelTest, RandomKdpp) {
   std::unique_ptr<dpp::l_kernel<double> > kern(
       dpp::l_kernel<double>::from_array(mat2.data(), 10));
 
-  auto ksamp = wrap(kern->sampler(5));
+  auto ksamp = wrap_ptr(kern->sampler(5));
 
   auto tracer = std::make_shared<storing_tracer<double> >();
   ksamp->register_tracer(tracer.get());
