@@ -11,12 +11,11 @@ project (libdpp)
 
 set(libdpp_INCLUDES ${libdpp_SOURCE_DIR}/include)
 
-find_package(Boost REQUIRED)
-
+#needs C++11 to build
 add_definitions("-std=c++11")
 
 include_directories(
-  ./libs/Eigen/
+  ./libs/
 )
 
 add_subdirectory (src)
@@ -24,4 +23,9 @@ add_subdirectory (libs/gtest)
 
 add_subdirectory (test)
 
-add_subdirectory(word_similarity)
+find_package(Boost COMPONENTS program_options)
+
+if (${Boost_FOUND})
+  include_directories(${Boost_INCLUDE_DIRS})
+  add_subdirectory(word_similarity)
+endif()

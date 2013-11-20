@@ -16,4 +16,5 @@ include_directories(
 
 target_link_libraries(word_sim  
   dpp
+  ${Boost_LIBRARIES}
 )
