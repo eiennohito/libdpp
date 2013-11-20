@@ -70,7 +70,9 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
     "output a number of items");
   o("trace-file,t", po::value<std::string>(), "output file");
   o("input-file,i", po::value<std::string>(), "input file");
-  o("dimension-count,d", po::value<i64>()->default_value(-1), "number of dimensions projection. If -1 (default) then equals to number of dimensions of input file");
+  o("dimension-count,d", po::value<i64>()->default_value(-1),
+    "number of dimensions projection. If -1 (default) then equals to number of "
+    "dimensions of input file");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -96,7 +98,7 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   if (vm.count("number")) {
     opts.items = vm["number"].as<i64>();
   }
-  
+
   opts.dims = vm["dimension-count"].as<i64>();
 
   if (vm.count("help") || opts.input_file.length() == 0) {
@@ -140,7 +142,7 @@ int main(int argc, char **argv) {
   std::vector<std::string> words;
 
   auto tracer = std::make_shared<prob_sampler>();
-  
+
   auto other_dims = opts->dims == -1 ? dims : opts->dims;
 
   dpp::c_kernel_builder<double> bldr(dims, other_dims);
