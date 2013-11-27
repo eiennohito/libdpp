@@ -589,7 +589,7 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
         auto projection = energy_product(other_row, pivot_row);
         subspace_.row(other) -= (pivot_row * projection);
         DPP_ASSERT(std::abs(energy_product(subspace_.row(other), pivot_row)) <
-                   1e-15);
+                   1e-10);
       }
     }
   }
