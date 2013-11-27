@@ -110,6 +110,8 @@ class dual_sampling_subspace {
   void sample(std::vector<i64> &res);
   std::vector<i64> sample();
 
+  void greedy(std::vector<i64> &res);
+
   void register_tracer(tracer<Fp> *t);
 
   ~dual_sampling_subspace();

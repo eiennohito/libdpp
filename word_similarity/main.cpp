@@ -28,11 +28,9 @@ class prob_sampler : public dpp::tracer<double> {
       auto pos = data_.size();
       std::copy_n(data, size, std::back_inserter(data_));
       auto sum =
-          std::accumulate(data_.begin() + pos, data_.begin() + pos + size, 0.0,
-                          [](double a, double b) { return a + b * b; });
-      auto len = std::sqrt(sum);
+          std::accumulate(data_.begin() + pos, data_.begin() + pos + size, 0.0);
       std::for_each(data_.begin() + pos, data_.begin() + pos + size,
-                    [len](double &item) { item /= len; });
+                    [sum](double &item) { item /= sum; });
     }
   }
 
@@ -53,6 +51,8 @@ struct options {
   i64 dims;
   std::string input_file;
   std::string trace_file;
+  bool greedy_selection = false;
+  bool greedy_basis = false;
 };
 
 std::unique_ptr<options> parse_options(int argc, char **argv) {
@@ -73,6 +73,12 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   o("dimension-count,d", po::value<i64>()->default_value(-1),
     "number of dimensions projection. If -1 (default) then equals to number of "
     "dimensions of input file");
+  o("greedy-selection,g",
+    po::value<bool>()->default_value(false)->implicit_value(true),
+    "perfrom a greedy selection from randomly sampled basis");
+  // o("greedy-basis,b", po::value<bool>()->default_value(false), "perform a
+  // greedy selection of basis (k vectors that have largest corresponding
+  // eigenvalues)");
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -97,6 +103,14 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
 
   if (vm.count("number")) {
     opts.items = vm["number"].as<i64>();
+  }
+
+  if (vm.count("greedy-basis")) {
+    opts.greedy_basis = vm["greedy-basis"].as<bool>();
+  }
+
+  if (vm.count("greedy-selection")) {
+    opts.greedy_selection = vm["greedy-selection"].as<bool>();
   }
 
   opts.dims = vm["dimension-count"].as<i64>();
@@ -163,7 +177,15 @@ int main(int argc, char **argv) {
   auto sampler = wrap(kernel->sampler(opts->items));
   sampler->register_tracer(tracer.get());
 
-  auto result = sampler->sample();
+  std::vector<i64> result;
+
+  if (opts->greedy_selection) {
+    sampler->greedy(result);
+  } else {
+    sampler->sample(result);
+  }
+
+  // auto result = sampler->sample();
 
   for (auto pos : result) {
     std::cout << words[pos] << "\n";

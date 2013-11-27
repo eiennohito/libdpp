@@ -490,7 +490,7 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
   c_sampler_impl(c_kernel_impl<Fp> *kernel, std::vector<i64> &&items)
       : items_{std::move(items)}, kernel_{kernel} {}
 
-  void sample(std::vector<i64> &res) {
+  void sample(std::vector<i64> &res, bool greedy = false) {
     reset();
 
     res.clear();
@@ -503,20 +503,32 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
     for (i64 i = 0; i < times; ++i) {
       probs_ =
           (subspace_ * kernel_->matrix().adjoint()).colwise().squaredNorm();
-      Fp sum = probs_.sum();
 
       this->trace(probs_.data(), probs_.size(),
                   TraceType::ProbabilityDistribution);
 
-      std::uniform_real_distribution<Fp> distr{0, sum};
-      Fp randval = distr(rng);
-      Fp cur = 0;
-
       i64 selected = 0;
-      for (; selected < probs_.size(); ++selected) {
-        cur += probs_[selected];
-        if (randval < cur) {
-          break;
+      if (greedy) {
+        Fp maxsel = 0;
+        i64 cand = 0;
+        for (; cand < probs_.size(); ++cand) {
+          Fp val = probs_[cand];
+          if (val > maxsel) {
+            maxsel = val;
+            selected = cand;
+          }
+        }
+      } else {
+        Fp sum = probs_.sum();
+        std::uniform_real_distribution<Fp> distr{0, sum};
+        Fp randval = distr(rng);
+        Fp cur = 0;
+
+        for (; selected < probs_.size(); ++selected) {
+          cur += probs_[selected];
+          if (randval < cur) {
+            break;
+          }
         }
       }
 
@@ -687,7 +699,7 @@ c_kernel<Fp>::~c_kernel<Fp>() {}
 
 template <typename Fp>
 void dual_sampling_subspace<Fp>::sample(std::vector<i64> &res) {
-  impl_->sample(res);
+  impl_->sample(res, false);
 }
 
 template <typename Fp>
@@ -695,6 +707,11 @@ std::vector<i64> dual_sampling_subspace<Fp>::sample() {
   std::vector<i64> res;
   sample(res);
   return std::move(res);
+}
+
+template <typename Fp>
+void dual_sampling_subspace<Fp>::greedy(std::vector<i64> &res) {
+  impl_->sample(res, true);
 }
 
 template <typename Fp>
