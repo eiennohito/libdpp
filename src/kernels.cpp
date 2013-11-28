@@ -480,7 +480,7 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
     i64 size = items_.size();
     subspace_.resize(size, kernel_->cols());
     for (i64 i = 0; i < size; ++i) {
-      subspace_.row(i) = kernel_->eigenvector(i);
+      subspace_.row(i) = kernel_->eigenvector(items_[i]);
       Fp len = std::sqrt(energy_product(subspace_.row(i), subspace_.row(i)));
       subspace_.row(i) /= len;
     }
