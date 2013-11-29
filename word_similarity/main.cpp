@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include <chrono>
 
 #include <boost/program_options.hpp>
 
@@ -53,6 +54,7 @@ struct options {
   std::string trace_file;
   bool greedy_selection = false;
   bool greedy_basis = false;
+  bool print_time;
 };
 
 std::unique_ptr<options> parse_options(int argc, char **argv) {
@@ -79,6 +81,8 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   // o("greedy-basis,b", po::value<bool>()->default_value(false), "perform a
   // greedy selection of basis (k vectors that have largest corresponding
   // eigenvalues)");
+
+  o("print-time", po::value<bool>()->default_value(false));
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -114,6 +118,7 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   }
 
   opts.dims = vm["dimension-count"].as<i64>();
+  opts.print_time = vm["print-time"].as<bool>();
 
   if (vm.count("help") || opts.input_file.length() == 0) {
     std::cout << desc;
@@ -130,6 +135,8 @@ int main(int argc, char **argv) {
   if (!opts) {
     return 1;
   }
+
+  auto read_begin = std::chrono::high_resolution_clock::now();
 
   std::ifstream input(opts->input_file);
   std::ofstream output(opts->trace_file);
@@ -173,8 +180,14 @@ int main(int argc, char **argv) {
     bldr.append(features.data(), indices.data(), dims);
   }
 
+  auto read_end = std::chrono::high_resolution_clock::now();
+
   auto kernel = wrap(bldr.build_kernel());
+  auto kernel_end = std::chrono::high_resolution_clock::now();
+
   auto sampler = wrap(kernel->sampler(opts->items));
+  auto sampler_end = std::chrono::high_resolution_clock::now();
+
   sampler->register_tracer(tracer.get());
 
   std::vector<i64> result;
@@ -185,6 +198,8 @@ int main(int argc, char **argv) {
     sampler->sample(result);
   }
 
+  auto sample_end = std::chrono::high_resolution_clock::now();
+
   // auto result = sampler->sample();
 
   for (auto pos : result) {
@@ -192,6 +207,19 @@ int main(int argc, char **argv) {
   }
 
   tracer->print(output);
+
+  auto d = [](std::chrono::high_resolution_clock::duration dur) {
+    return dur.count() /
+           static_cast<double>(std::chrono::high_resolution_clock::period::den);
+  };
+
+  if (opts->print_time) {
+    std::cout << "Read from file in " << d(read_end - read_begin)
+              << "\nbuilt kernel in " << d(kernel_end - read_end)
+              << "\n built sampler in " << d(sampler_end - kernel_end)
+              << "\n created a sample in " << d(sample_end - sampler_end)
+              << std::endl;
+  }
 
   return 0;
 }

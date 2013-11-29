@@ -424,7 +424,7 @@ class c_kernel_impl : public base_kernel<c_kernel_impl<Fp>, Fp> {
  public:
   typedef typename Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic,
                                  Eigen::RowMajor> matrix_t;
-  typedef typename base_kernel<c_kernel_impl<Fp>, Fp>::kernel_t kernel_t;
+  typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
 
  private:
   // dual DPP-kernel, has dimensions of D \times D
@@ -459,10 +459,10 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
   // dot products
   // here C is our dual DPP-kernel, a and b are D-dimensional vectors
   template <typename Vec1, typename Vec2>
-  Fp energy_product(Vec1 &&v1, Vec2 &&v2) const {
-    auto &&product = (v1 * kernel_->kernel());
-    DPP_ASSERT(product.cols() == v2.cols() && product.rows() == 1);
-    return product.row(0).dot(v2);
+  Fp energy_product(Vec1 &&v1, Vec2 &&v2) {
+    mult_temp_.noalias() = (v1 * kernel_->kernel());
+    // DPP_ASSERT(product.cols() == v2.cols() && product.rows() == 1);
+    return mult_temp_.dot(v2);
   }
 
   std::vector<i64> items_;
@@ -471,7 +471,7 @@ class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
   subspace_t subspace_;
 
   vector_t probs_;
-  vector_t temp_;
+  vector_t temp_, mult_temp_;
 
   c_kernel_impl<Fp> *kernel_;
 
