@@ -10,6 +10,7 @@
 #include <chrono>
 
 #include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
 
 namespace po = boost::program_options;
 
@@ -55,6 +56,7 @@ struct options {
   bool greedy_selection = false;
   bool greedy_basis = false;
   bool print_time;
+  bool binary_input;
 };
 
 std::unique_ptr<options> parse_options(int argc, char **argv) {
@@ -78,11 +80,14 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   o("greedy-selection,g",
     po::value<bool>()->default_value(false)->implicit_value(true),
     "perfrom a greedy selection from randomly sampled basis");
+  o("binary,b", po::value<bool>()->default_value(false)->implicit_value(true),
+    "treat input as binary");
   // o("greedy-basis,b", po::value<bool>()->default_value(false), "perform a
   // greedy selection of basis (k vectors that have largest corresponding
   // eigenvalues)");
 
-  o("print-time", po::value<bool>()->default_value(false));
+  o("print-time",
+    po::value<bool>()->default_value(false)->implicit_value(true));
 
   po::positional_options_description p;
   p.add("input-file", 1);
@@ -119,6 +124,7 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
 
   opts.dims = vm["dimension-count"].as<i64>();
   opts.print_time = vm["print-time"].as<bool>();
+  opts.binary_input = vm["binary"].as<bool>();
 
   if (vm.count("help") || opts.input_file.length() == 0) {
     std::cout << desc;
@@ -138,7 +144,9 @@ int main(int argc, char **argv) {
 
   auto read_begin = std::chrono::high_resolution_clock::now();
 
-  std::ifstream input(opts->input_file);
+  auto mode =
+      opts->binary_input ? (std::ios::binary | std::ios::in) : std::ios::in;
+  std::ifstream input(opts->input_file, mode);
   std::ofstream output(opts->trace_file);
 
   if (!input) {
@@ -151,13 +159,22 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  i64 dims;
-  input >> dims;
-
-  std::vector<double> features(dims);
-  std::vector<i64> indices(dims);
-  for (i64 i = 0; i < dims; ++i) {
-    indices[i] = i;
+  i64 dims = -1;
+  i64 cnt = -1;
+  if (opts->binary_input && opts->dims == -1) {
+    std::cerr << "Specify projection dimension size!\n";
+    return 2;
+  } else if (!opts->binary_input) {
+    input >> dims;
+  } else {
+    int buf[2];
+    input.read(reinterpret_cast<char *>(buf), sizeof(buf));
+    dims = buf[1];
+    cnt = buf[0];
+    if (cnt < opts->items) {
+      std::cerr << "You are trying to select more items (" << opts->items
+                << ") than there are in dataset (" << cnt << ")\n";
+    }
   }
 
   std::vector<std::string> words;
@@ -168,16 +185,52 @@ int main(int argc, char **argv) {
 
   dpp::c_kernel_builder<double> bldr(dims, other_dims);
 
-  bldr.hint_size(100);
+  if (opts->binary_input) {
+    bldr.hint_size(cnt);
+    std::vector<float> data_read;
+    std::vector<int> pos_read;
+    std::vector<double> data_internal;
+    std::vector<i64> pos_internal;
+    for (i64 i = 0; i < cnt; ++i) {
+      int hdr[2] = {0};
+      input.read(reinterpret_cast<char *>(hdr), sizeof(hdr));
+      words.push_back(boost::lexical_cast<std::string>(hdr[0]));
+      i64 num = hdr[1];
+      data_read.resize(num);
+      pos_read.resize(num);
 
-  while (!input.eof()) {
-    std::string word;
-    input >> word;
-    words.emplace_back(std::move(word));
-    for (i64 i = 0; i < dims; ++i) {
-      input >> features[i];
+      data_internal.reserve(num);
+      pos_internal.reserve(num);
+      data_internal.clear();
+      pos_internal.clear();
+
+      input.read(reinterpret_cast<char *>(pos_read.data()), sizeof(int) * num);
+      input.read(reinterpret_cast<char *>(data_read.data()),
+                 sizeof(float) * num);
+
+      std::copy(data_read.begin(), data_read.end(),
+                std::back_inserter(data_internal));
+      std::copy(pos_read.begin(), pos_read.end(),
+                std::back_inserter(pos_internal));
+      bldr.append(data_internal.data(), pos_internal.data(), num);
     }
-    bldr.append(features.data(), indices.data(), dims);
+  } else {
+    bldr.hint_size(100);
+    std::vector<double> features(dims);
+    std::vector<i64> indices(dims);
+    for (i64 i = 0; i < dims; ++i) {
+      indices[i] = i;
+    }
+
+    while (!input.eof()) {
+      std::string word;
+      input >> word;
+      words.emplace_back(std::move(word));
+      for (i64 i = 0; i < dims; ++i) {
+        input >> features[i];
+      }
+      bldr.append(features.data(), indices.data(), dims);
+    }
   }
 
   auto read_end = std::chrono::high_resolution_clock::now();
