@@ -12,6 +12,15 @@
 
 namespace Eigen {
 
+// On WINCE, std::abs is defined for int only, so let's defined our own overloads:
+// This issue has been confirmed with MSVC 2008 only, but the issue might exist for more recent versions too.
+#if EIGEN_OS_WINCE && EIGEN_COMP_MSVC && EIGEN_COMP_MSVC<=1500
+long        abs(long        x) { return (labs(x));  }
+double      abs(double      x) { return (fabs(x));  }
+float       abs(float       x) { return (fabsf(x)); }
+long double abs(long double x) { return (fabsl(x)); }
+#endif
+  
 namespace internal {
 
 /** \internal \struct global_math_functions_filtering_base
@@ -308,10 +317,18 @@ struct hypot_impl
     using std::sqrt;
     RealScalar _x = abs(x);
     RealScalar _y = abs(y);
-    RealScalar p = (max)(_x, _y);
-    if(p==RealScalar(0)) return 0;
-    RealScalar q = (min)(_x, _y);
-    RealScalar qp = q/p;
+    Scalar p, qp;
+    if(_x>_y)
+    {
+      p = _x;
+      qp = _y / p;
+    }
+    else
+    {
+      p = _y;
+      qp = _x / p;
+    }
+    if(p==RealScalar(0)) return RealScalar(0);
     return p * sqrt(RealScalar(1) + qp*qp);
   }
 };
@@ -344,50 +361,37 @@ inline NewType cast(const OldType& x)
 }
 
 /****************************************************************************
-* Implementation of atanh2                                                *
+* Implementation of logp1                                                *
 ****************************************************************************/
-
-template<typename Scalar>
-struct atanh2_impl
+template<typename Scalar, bool isComplex = NumTraits<Scalar>::IsComplex >
+struct log1p_impl
 {
-  static inline Scalar run(const Scalar& x, const Scalar& r)
+  static inline Scalar run(const Scalar& x)
   {
     EIGEN_STATIC_ASSERT_NON_INTEGER(Scalar)
-    #if (__cplusplus >= 201103L) && !defined(__CYGWIN__)
-      using std::log1p;
-      return log1p(2 * x / (r - x)) / 2;
-    #else
-      using std::abs;
-      using std::log;
-      using std::sqrt;
-      Scalar z = x / r;
-      if (r == 0 || abs(z) > sqrt(NumTraits<Scalar>::epsilon()))
-        return log((r + x) / (r - x)) / 2;
-      else
-        return z + z*z*z / 3;
-    #endif
-  }
-};
-
-template<typename RealScalar>
-struct atanh2_impl<std::complex<RealScalar> >
-{
-  typedef std::complex<RealScalar> Scalar;
-  static inline Scalar run(const Scalar& x, const Scalar& r)
-  {
+    typedef typename NumTraits<Scalar>::Real RealScalar;
     using std::log;
-    using std::norm;
-    using std::sqrt;
-    Scalar z = x / r;
-    if (r == Scalar(0) || norm(z) > NumTraits<RealScalar>::epsilon())
-      return RealScalar(0.5) * log((r + x) / (r - x));
-    else
-      return z + z*z*z / RealScalar(3);
+    Scalar x1p = RealScalar(1) + x;
+    return ( x1p == Scalar(1) ) ? x : x * ( log(x1p) / (x1p - RealScalar(1)) );
   }
 };
+// In C++11 we can specialize log1p_impl for real Scalars
+// Let's be conservative and enable the default C++11 implementation only if we are sure it exists
+#if (__cplusplus >= 201103L) && (EIGEN_COMP_GNUC_STRICT || EIGEN_COMP_CLANG || EIGEN_COMP_MSVC || EIGEN_COMP_ICC)  \
+    && (EIGEN_ARCH_i386_OR_x86_64) && (EIGEN_OS_GNULINUX || EIGEN_OS_WIN_STRICT || EIGEN_OS_MAC)
+template<typename Scalar>
+struct log1p_impl<Scalar, false> {
+  static inline Scalar run(const Scalar& x)
+  {
+    EIGEN_STATIC_ASSERT_NON_INTEGER(Scalar)
+    using std::log1p;
+    return log1p(x);
+  }
+};
+#endif
 
 template<typename Scalar>
-struct atanh2_retval
+struct log1p_retval
 {
   typedef Scalar type;
 };
@@ -470,48 +474,48 @@ struct random_default_impl<Scalar, false, false>
 };
 
 enum {
-  floor_log2_terminate,
-  floor_log2_move_up,
-  floor_log2_move_down,
-  floor_log2_bogus
+  meta_floor_log2_terminate,
+  meta_floor_log2_move_up,
+  meta_floor_log2_move_down,
+  meta_floor_log2_bogus
 };
 
-template<unsigned int n, int lower, int upper> struct floor_log2_selector
+template<unsigned int n, int lower, int upper> struct meta_floor_log2_selector
 {
   enum { middle = (lower + upper) / 2,
-         value = (upper <= lower + 1) ? int(floor_log2_terminate)
-               : (n < (1 << middle)) ? int(floor_log2_move_down)
-               : (n==0) ? int(floor_log2_bogus)
-               : int(floor_log2_move_up)
+         value = (upper <= lower + 1) ? int(meta_floor_log2_terminate)
+               : (n < (1 << middle)) ? int(meta_floor_log2_move_down)
+               : (n==0) ? int(meta_floor_log2_bogus)
+               : int(meta_floor_log2_move_up)
   };
 };
 
 template<unsigned int n,
          int lower = 0,
          int upper = sizeof(unsigned int) * CHAR_BIT - 1,
-         int selector = floor_log2_selector<n, lower, upper>::value>
-struct floor_log2 {};
+         int selector = meta_floor_log2_selector<n, lower, upper>::value>
+struct meta_floor_log2 {};
 
 template<unsigned int n, int lower, int upper>
-struct floor_log2<n, lower, upper, floor_log2_move_down>
+struct meta_floor_log2<n, lower, upper, meta_floor_log2_move_down>
 {
-  enum { value = floor_log2<n, lower, floor_log2_selector<n, lower, upper>::middle>::value };
+  enum { value = meta_floor_log2<n, lower, meta_floor_log2_selector<n, lower, upper>::middle>::value };
 };
 
 template<unsigned int n, int lower, int upper>
-struct floor_log2<n, lower, upper, floor_log2_move_up>
+struct meta_floor_log2<n, lower, upper, meta_floor_log2_move_up>
 {
-  enum { value = floor_log2<n, floor_log2_selector<n, lower, upper>::middle, upper>::value };
+  enum { value = meta_floor_log2<n, meta_floor_log2_selector<n, lower, upper>::middle, upper>::value };
 };
 
 template<unsigned int n, int lower, int upper>
-struct floor_log2<n, lower, upper, floor_log2_terminate>
+struct meta_floor_log2<n, lower, upper, meta_floor_log2_terminate>
 {
   enum { value = (n >= ((unsigned int)(1) << (lower+1))) ? lower+1 : lower };
 };
 
 template<unsigned int n, int lower, int upper>
-struct floor_log2<n, lower, upper, floor_log2_bogus>
+struct meta_floor_log2<n, lower, upper, meta_floor_log2_bogus>
 {
   // no value, error at compile time
 };
@@ -519,11 +523,24 @@ struct floor_log2<n, lower, upper, floor_log2_bogus>
 template<typename Scalar>
 struct random_default_impl<Scalar, false, true>
 {
-  typedef typename NumTraits<Scalar>::NonInteger NonInteger;
-
   static inline Scalar run(const Scalar& x, const Scalar& y)
-  {
-    return x + Scalar((NonInteger(y)-x+1) * std::rand() / (RAND_MAX + NonInteger(1)));
+  { 
+    using std::max;
+    using std::min;
+    typedef typename conditional<NumTraits<Scalar>::IsSigned,std::ptrdiff_t,std::size_t>::type ScalarX;
+    if(y<x)
+      return x;
+    std::size_t range = ScalarX(y)-ScalarX(x);
+    std::size_t offset = 0;
+    // rejection sampling
+    std::size_t divisor    = (range+RAND_MAX-1)/(range+1);
+    std::size_t multiplier = (range+RAND_MAX-1)/std::size_t(RAND_MAX);
+
+    do {
+      offset = ( (std::size_t(std::rand()) * multiplier) / divisor );
+    } while (offset > range);
+
+    return Scalar(ScalarX(x) + offset);
   }
 
   static inline Scalar run()
@@ -531,7 +548,7 @@ struct random_default_impl<Scalar, false, true>
 #ifdef EIGEN_MAKING_DOCS
     return run(Scalar(NumTraits<Scalar>::IsSigned ? -10 : 0), Scalar(10));
 #else
-    enum { rand_bits = floor_log2<(unsigned int)(RAND_MAX)+1>::value,
+    enum { rand_bits = meta_floor_log2<(unsigned int)(RAND_MAX)+1>::value,
            scalar_bits = sizeof(Scalar) * CHAR_BIT,
            shift = EIGEN_PLAIN_ENUM_MAX(0, int(rand_bits) - int(scalar_bits)),
            offset = NumTraits<Scalar>::IsSigned ? (1 << (EIGEN_PLAIN_ENUM_MIN(rand_bits,scalar_bits)-1)) : 0
@@ -575,6 +592,22 @@ inline EIGEN_MATHFUNC_RETVAL(random, Scalar) random()
 ****************************************************************************/
 
 namespace numext {
+  
+template<typename T>
+EIGEN_DEVICE_FUNC
+inline T mini(const T& x, const T& y)
+{
+  EIGEN_USING_STD_MATH(min);
+  return min EIGEN_NOT_A_MACRO (x,y);
+}
+
+template<typename T>
+EIGEN_DEVICE_FUNC
+inline T maxi(const T& x, const T& y)
+{
+  EIGEN_USING_STD_MATH(max);
+  return max EIGEN_NOT_A_MACRO (x,y);
+}
 
 template<typename Scalar>
 EIGEN_DEVICE_FUNC
@@ -648,9 +681,9 @@ inline EIGEN_MATHFUNC_RETVAL(hypot, Scalar) hypot(const Scalar& x, const Scalar&
 
 template<typename Scalar>
 EIGEN_DEVICE_FUNC
-inline EIGEN_MATHFUNC_RETVAL(atanh2, Scalar) atanh2(const Scalar& x, const Scalar& y)
+inline EIGEN_MATHFUNC_RETVAL(log1p, Scalar) log1p(const Scalar& x)
 {
-  return EIGEN_MATHFUNC_IMPL(atanh2, Scalar)::run(x, y);
+  return EIGEN_MATHFUNC_IMPL(log1p, Scalar)::run(x);
 }
 
 template<typename Scalar>
@@ -667,6 +700,30 @@ EIGEN_DEVICE_FUNC
 bool (isfinite)(const T& x)
 {
   return x<NumTraits<T>::highest() && x>NumTraits<T>::lowest();
+}
+
+template<typename T>
+EIGEN_DEVICE_FUNC
+bool (isfinite)(const std::complex<T>& x)
+{
+  using std::real;
+  using std::imag;
+  return isfinite(real(x)) && isfinite(imag(x));
+}
+
+// Log base 2 for 32 bits positive integers.
+// Conveniently returns 0 for x==0.
+inline int log2(int x)
+{
+  eigen_assert(x>=0);
+  unsigned int v(x);
+  static const int table[32] = { 0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30, 8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6, 26, 5, 4, 31 };
+  v |= v >> 1;
+  v |= v >> 2;
+  v |= v >> 4;
+  v |= v >> 8;
+  v |= v >> 16;
+  return table[(v * 0x07C4ACDDU) >> 27];
 }
 
 } // end namespace numext

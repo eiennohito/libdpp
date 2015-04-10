@@ -35,19 +35,13 @@ template<typename NullaryOp, typename PlainObjectType>
 struct traits<CwiseNullaryOp<NullaryOp, PlainObjectType> > : traits<PlainObjectType>
 {
   enum {
-    Flags = (traits<PlainObjectType>::Flags
-      & (  HereditaryBits
-         | (functor_has_linear_access<NullaryOp>::ret ? LinearAccessBit : 0)
-         | (functor_traits<NullaryOp>::PacketAccess ? PacketAccessBit : 0)))
-      | (functor_traits<NullaryOp>::IsRepeatable ? 0 : EvalBeforeNestingBit),
-    CoeffReadCost = functor_traits<NullaryOp>::Cost
+    Flags = traits<PlainObjectType>::Flags & RowMajorBit
   };
 };
 }
 
 template<typename NullaryOp, typename PlainObjectType>
-class CwiseNullaryOp : internal::no_assignment_operator,
-  public internal::dense_xpr_base< CwiseNullaryOp<NullaryOp, PlainObjectType> >::type
+class CwiseNullaryOp : public internal::dense_xpr_base< CwiseNullaryOp<NullaryOp, PlainObjectType> >::type, internal::no_assignment_operator
 {
   public:
 
@@ -138,6 +132,9 @@ DenseBase<Derived>::NullaryExpr(Index rows, Index cols, const CustomNullaryOp& f
   *
   * The template parameter \a CustomNullaryOp is the type of the functor.
   *
+  * Here is an example with C++11 random generators: \include random_cpp11.cpp
+  * Output: \verbinclude random_cpp11.out
+  * 
   * \sa class CwiseNullaryOp
   */
 template<typename Derived>
@@ -303,9 +300,10 @@ template<typename Derived>
 bool DenseBase<Derived>::isApproxToConstant
 (const Scalar& val, const RealScalar& prec) const
 {
+  typename internal::nested_eval<Derived,1>::type self(derived());
   for(Index j = 0; j < cols(); ++j)
     for(Index i = 0; i < rows(); ++i)
-      if(!internal::isApprox(this->coeff(i, j), val, prec))
+      if(!internal::isApprox(self.coeff(i, j), val, prec))
         return false;
   return true;
 }
@@ -487,9 +485,10 @@ DenseBase<Derived>::Zero()
 template<typename Derived>
 bool DenseBase<Derived>::isZero(const RealScalar& prec) const
 {
+  typename internal::nested_eval<Derived,1>::type self(derived());
   for(Index j = 0; j < cols(); ++j)
     for(Index i = 0; i < rows(); ++i)
-      if(!internal::isMuchSmallerThan(this->coeff(i, j), static_cast<Scalar>(1), prec))
+      if(!internal::isMuchSmallerThan(self.coeff(i, j), static_cast<Scalar>(1), prec))
         return false;
   return true;
 }
@@ -722,18 +721,19 @@ template<typename Derived>
 bool MatrixBase<Derived>::isIdentity
 (const RealScalar& prec) const
 {
+  typename internal::nested_eval<Derived,1>::type self(derived());
   for(Index j = 0; j < cols(); ++j)
   {
     for(Index i = 0; i < rows(); ++i)
     {
       if(i == j)
       {
-        if(!internal::isApprox(this->coeff(i, j), static_cast<Scalar>(1), prec))
+        if(!internal::isApprox(self.coeff(i, j), static_cast<Scalar>(1), prec))
           return false;
       }
       else
       {
-        if(!internal::isMuchSmallerThan(this->coeff(i, j), static_cast<RealScalar>(1), prec))
+        if(!internal::isMuchSmallerThan(self.coeff(i, j), static_cast<RealScalar>(1), prec))
           return false;
       }
     }
@@ -756,7 +756,6 @@ struct setIdentity_impl
 template<typename Derived>
 struct setIdentity_impl<Derived, true>
 {
-  typedef typename Derived::Index Index;
   EIGEN_DEVICE_FUNC
   static EIGEN_STRONG_INLINE Derived& run(Derived& m)
   {

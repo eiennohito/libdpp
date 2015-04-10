@@ -50,7 +50,6 @@ template<typename Derived> class ArrayBase
                 typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>::operator*;
 
     typedef typename internal::traits<Derived>::StorageKind StorageKind;
-    typedef typename internal::traits<Derived>::Index Index;
     typedef typename internal::traits<Derived>::Scalar Scalar;
     typedef typename internal::packet_traits<Scalar>::type PacketScalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
@@ -64,8 +63,7 @@ template<typename Derived> class ArrayBase
     using Base::MaxSizeAtCompileTime;
     using Base::IsVectorAtCompileTime;
     using Base::Flags;
-    using Base::CoeffReadCost;
-
+    
     using Base::derived;
     using Base::const_cast_derived;
     using Base::rows;
@@ -121,8 +119,15 @@ template<typename Derived> class ArrayBase
     EIGEN_DEVICE_FUNC
     Derived& operator=(const ArrayBase& other)
     {
-      return internal::assign_selector<Derived,Derived>::run(derived(), other.derived());
+      internal::call_assignment(derived(), other.derived());
+      return derived();
     }
+    
+    /** Set all the entries to \a value.
+      * \sa DenseBase::setConstant(), DenseBase::fill() */
+    EIGEN_DEVICE_FUNC
+    Derived& operator=(const Scalar &value)
+    { Base::setConstant(value); return derived(); }
 
     EIGEN_DEVICE_FUNC
     Derived& operator+=(const Scalar& scalar);
@@ -153,9 +158,9 @@ template<typename Derived> class ArrayBase
     /** \returns an \link Eigen::MatrixBase Matrix \endlink expression of this array
       * \sa MatrixBase::array() */
     EIGEN_DEVICE_FUNC
-    MatrixWrapper<Derived> matrix() { return derived(); }
+    MatrixWrapper<Derived> matrix() { return MatrixWrapper<Derived>(derived()); }
     EIGEN_DEVICE_FUNC
-    const MatrixWrapper<const Derived> matrix() const { return derived(); }
+    const MatrixWrapper<const Derived> matrix() const { return MatrixWrapper<const Derived>(derived()); }
 
 //     template<typename Dest>
 //     inline void evalTo(Dest& dst) const { dst = matrix(); }
@@ -186,8 +191,7 @@ template<typename OtherDerived>
 EIGEN_STRONG_INLINE Derived &
 ArrayBase<Derived>::operator-=(const ArrayBase<OtherDerived> &other)
 {
-  SelfCwiseBinaryOp<internal::scalar_difference_op<Scalar>, Derived, OtherDerived> tmp(derived());
-  tmp = other.derived();
+  call_assignment(derived(), other.derived(), internal::sub_assign_op<Scalar>());
   return derived();
 }
 
@@ -200,8 +204,7 @@ template<typename OtherDerived>
 EIGEN_STRONG_INLINE Derived &
 ArrayBase<Derived>::operator+=(const ArrayBase<OtherDerived>& other)
 {
-  SelfCwiseBinaryOp<internal::scalar_sum_op<Scalar>, Derived, OtherDerived> tmp(derived());
-  tmp = other.derived();
+  call_assignment(derived(), other.derived(), internal::add_assign_op<Scalar>());
   return derived();
 }
 
@@ -214,8 +217,7 @@ template<typename OtherDerived>
 EIGEN_STRONG_INLINE Derived &
 ArrayBase<Derived>::operator*=(const ArrayBase<OtherDerived>& other)
 {
-  SelfCwiseBinaryOp<internal::scalar_product_op<Scalar>, Derived, OtherDerived> tmp(derived());
-  tmp = other.derived();
+  call_assignment(derived(), other.derived(), internal::mul_assign_op<Scalar,typename OtherDerived::Scalar>());
   return derived();
 }
 
@@ -228,8 +230,7 @@ template<typename OtherDerived>
 EIGEN_STRONG_INLINE Derived &
 ArrayBase<Derived>::operator/=(const ArrayBase<OtherDerived>& other)
 {
-  SelfCwiseBinaryOp<internal::scalar_quotient_op<Scalar>, Derived, OtherDerived> tmp(derived());
-  tmp = other.derived();
+  call_assignment(derived(), other.derived(), internal::div_assign_op<Scalar>());
   return derived();
 }
 

@@ -28,7 +28,6 @@ template<typename XprType>
 struct CommaInitializer
 {
   typedef typename XprType::Scalar Scalar;
-  typedef typename XprType::Index Index;
 
   EIGEN_DEVICE_FUNC
   inline CommaInitializer(XprType& xpr, const Scalar& s)
@@ -43,6 +42,18 @@ struct CommaInitializer
     : m_xpr(xpr), m_row(0), m_col(other.cols()), m_currentBlockRows(other.rows())
   {
     m_xpr.block(0, 0, other.rows(), other.cols()) = other;
+  }
+
+  /* Copy/Move constructor which transfers ownership. This is crucial in 
+   * absence of return value optimization to avoid assertions during destruction. */
+  // FIXME in C++11 mode this could be replaced by a proper RValue constructor
+  EIGEN_DEVICE_FUNC
+  inline CommaInitializer(const CommaInitializer& o)
+  : m_xpr(o.m_xpr), m_row(o.m_row), m_col(o.m_col), m_currentBlockRows(o.m_currentBlockRows) {
+    // Mark original object as finished. In absence of R-value references we need to const_cast:
+    const_cast<CommaInitializer&>(o).m_row = m_xpr.rows();
+    const_cast<CommaInitializer&>(o).m_col = m_xpr.cols();
+    const_cast<CommaInitializer&>(o).m_currentBlockRows = 0;
   }
 
   /* inserts a scalar value in the target matrix */
@@ -94,6 +105,9 @@ struct CommaInitializer
 
   EIGEN_DEVICE_FUNC
   inline ~CommaInitializer()
+#if defined VERIFY_RAISES_ASSERT && (!defined EIGEN_NO_ASSERTION_CHECKING) && defined EIGEN_EXCEPTIONS
+  throw(Eigen::eigen_assert_exception)
+#endif
   {
     eigen_assert((m_row+m_currentBlockRows) == m_xpr.rows()
          && m_col == m_xpr.cols()
@@ -110,7 +124,7 @@ struct CommaInitializer
   EIGEN_DEVICE_FUNC
   inline XprType& finished() { return m_xpr; }
 
-  XprType& m_xpr;   // target expression
+  XprType& m_xpr;           // target expression
   Index m_row;              // current row id
   Index m_col;              // current col id
   Index m_currentBlockRows; // current block height

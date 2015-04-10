@@ -13,7 +13,9 @@
 
 namespace Eigen {
 
-/** Common base class for all classes T such that MatrixBase has an operator=(T) and a constructor MatrixBase(T).
+/** \class EigenBase
+  * 
+  * Common base class for all classes T such that MatrixBase has an operator=(T) and a constructor MatrixBase(T).
   *
   * In other words, an EigenBase object is an object that can be copied into a MatrixBase.
   *
@@ -26,9 +28,16 @@ namespace Eigen {
 template<typename Derived> struct EigenBase
 {
 //   typedef typename internal::plain_matrix_type<Derived>::type PlainObject;
+  
+  /** \brief The interface type of indices
+    * \details To change this, \c \#define the preprocessor symbol \c EIGEN_DEFAULT_DENSE_INDEX_TYPE.
+    * \deprecated Since Eigen 3.3, its usage is deprecated. Use Eigen::Index instead.
+    * \sa StorageIndex, \ref TopicPreprocessorDirectives.
+    */
+  typedef Eigen::Index Index;
 
+  // FIXME is it needed?
   typedef typename internal::traits<Derived>::StorageKind StorageKind;
-  typedef typename internal::traits<Derived>::Index Index;
 
   /** \returns a reference to the derived object */
   EIGEN_DEVICE_FUNC
@@ -121,7 +130,7 @@ template<typename Derived>
 template<typename OtherDerived>
 Derived& DenseBase<Derived>::operator=(const EigenBase<OtherDerived> &other)
 {
-  other.derived().evalTo(derived());
+  call_assignment(derived(), other.derived());
   return derived();
 }
 
@@ -129,7 +138,7 @@ template<typename Derived>
 template<typename OtherDerived>
 Derived& DenseBase<Derived>::operator+=(const EigenBase<OtherDerived> &other)
 {
-  other.derived().addTo(derived());
+  call_assignment(derived(), other.derived(), internal::add_assign_op<Scalar>());
   return derived();
 }
 
@@ -137,38 +146,8 @@ template<typename Derived>
 template<typename OtherDerived>
 Derived& DenseBase<Derived>::operator-=(const EigenBase<OtherDerived> &other)
 {
-  other.derived().subTo(derived());
+  call_assignment(derived(), other.derived(), internal::sub_assign_op<Scalar>());
   return derived();
-}
-
-/** replaces \c *this by \c *this * \a other.
-  *
-  * \returns a reference to \c *this
-  */
-template<typename Derived>
-template<typename OtherDerived>
-inline Derived&
-MatrixBase<Derived>::operator*=(const EigenBase<OtherDerived> &other)
-{
-  other.derived().applyThisOnTheRight(derived());
-  return derived();
-}
-
-/** replaces \c *this by \c *this * \a other. It is equivalent to MatrixBase::operator*=().
-  */
-template<typename Derived>
-template<typename OtherDerived>
-inline void MatrixBase<Derived>::applyOnTheRight(const EigenBase<OtherDerived> &other)
-{
-  other.derived().applyThisOnTheRight(derived());
-}
-
-/** replaces \c *this by \c *this * \a other. */
-template<typename Derived>
-template<typename OtherDerived>
-inline void MatrixBase<Derived>::applyOnTheLeft(const EigenBase<OtherDerived> &other)
-{
-  other.derived().applyThisOnTheLeft(derived());
 }
 
 } // end namespace Eigen

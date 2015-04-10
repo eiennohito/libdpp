@@ -35,7 +35,6 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
 {
   public:
     typedef typename internal::traits<Derived>::StorageKind StorageKind;
-    typedef typename internal::traits<Derived>::Index Index;
     typedef typename internal::traits<Derived>::Scalar Scalar;
     typedef typename internal::packet_traits<Scalar>::type PacketScalar;
 
@@ -97,8 +96,8 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     EIGEN_STRONG_INLINE CoeffReturnType coeff(Index row, Index col) const
     {
       eigen_internal_assert(row >= 0 && row < rows()
-                        && col >= 0 && col < cols());
-      return derived().coeff(row, col);
+                         && col >= 0 && col < cols());
+      return typename internal::evaluator<Derived>::type(derived()).coeff(row,col);
     }
 
     EIGEN_DEVICE_FUNC
@@ -117,7 +116,7 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     {
       eigen_assert(row >= 0 && row < rows()
           && col >= 0 && col < cols());
-      return derived().coeff(row, col);
+      return coeff(row, col);
     }
 
     /** Short version: don't use this function, use
@@ -140,7 +139,7 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     coeff(Index index) const
     {
       eigen_internal_assert(index >= 0 && index < size());
-      return derived().coeff(index);
+      return typename internal::evaluator<Derived>::type(derived()).coeff(index);
     }
 
 
@@ -156,12 +155,10 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     EIGEN_STRONG_INLINE CoeffReturnType
     operator[](Index index) const
     {
-      #ifndef EIGEN2_SUPPORT
       EIGEN_STATIC_ASSERT(Derived::IsVectorAtCompileTime,
                           THE_BRACKET_OPERATOR_IS_ONLY_FOR_VECTORS__USE_THE_PARENTHESIS_OPERATOR_INSTEAD)
-      #endif
       eigen_assert(index >= 0 && index < size());
-      return derived().coeff(index);
+      return coeff(index);
     }
 
     /** \returns the coefficient at given index.
@@ -179,7 +176,7 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     operator()(Index index) const
     {
       eigen_assert(index >= 0 && index < size());
-      return derived().coeff(index);
+      return coeff(index);
     }
 
     /** equivalent to operator[](0).  */
@@ -219,9 +216,8 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     template<int LoadMode>
     EIGEN_STRONG_INLINE PacketReturnType packet(Index row, Index col) const
     {
-      eigen_internal_assert(row >= 0 && row < rows()
-                      && col >= 0 && col < cols());
-      return derived().template packet<LoadMode>(row,col);
+      eigen_internal_assert(row >= 0 && row < rows() && col >= 0 && col < cols());
+      return typename internal::evaluator<Derived>::type(derived()).template packet<LoadMode>(row,col);
     }
 
 
@@ -247,7 +243,7 @@ class DenseCoeffsBase<Derived,ReadOnlyAccessors> : public EigenBase<Derived>
     EIGEN_STRONG_INLINE PacketReturnType packet(Index index) const
     {
       eigen_internal_assert(index >= 0 && index < size());
-      return derived().template packet<LoadMode>(index);
+      return typename internal::evaluator<Derived>::type(derived()).template packet<LoadMode>(index);
     }
 
   protected:
@@ -290,7 +286,6 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     typedef DenseCoeffsBase<Derived, ReadOnlyAccessors> Base;
 
     typedef typename internal::traits<Derived>::StorageKind StorageKind;
-    typedef typename internal::traits<Derived>::Index Index;
     typedef typename internal::traits<Derived>::Scalar Scalar;
     typedef typename internal::packet_traits<Scalar>::type PacketScalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
@@ -327,8 +322,8 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     EIGEN_STRONG_INLINE Scalar& coeffRef(Index row, Index col)
     {
       eigen_internal_assert(row >= 0 && row < rows()
-                        && col >= 0 && col < cols());
-      return derived().coeffRef(row, col);
+                         && col >= 0 && col < cols());
+      return typename internal::evaluator<Derived>::type(derived()).coeffRef(row,col);
     }
 
     EIGEN_DEVICE_FUNC
@@ -350,7 +345,7 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     {
       eigen_assert(row >= 0 && row < rows()
           && col >= 0 && col < cols());
-      return derived().coeffRef(row, col);
+      return coeffRef(row, col);
     }
 
 
@@ -374,7 +369,7 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     coeffRef(Index index)
     {
       eigen_internal_assert(index >= 0 && index < size());
-      return derived().coeffRef(index);
+      return typename internal::evaluator<Derived>::type(derived()).coeffRef(index);
     }
 
     /** \returns a reference to the coefficient at given index.
@@ -388,12 +383,10 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     EIGEN_STRONG_INLINE Scalar&
     operator[](Index index)
     {
-      #ifndef EIGEN2_SUPPORT
       EIGEN_STATIC_ASSERT(Derived::IsVectorAtCompileTime,
                           THE_BRACKET_OPERATOR_IS_ONLY_FOR_VECTORS__USE_THE_PARENTHESIS_OPERATOR_INSTEAD)
-      #endif
       eigen_assert(index >= 0 && index < size());
-      return derived().coeffRef(index);
+      return coeffRef(index);
     }
 
     /** \returns a reference to the coefficient at given index.
@@ -410,7 +403,7 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     operator()(Index index)
     {
       eigen_assert(index >= 0 && index < size());
-      return derived().coeffRef(index);
+      return coeffRef(index);
     }
 
     /** equivalent to operator[](0).  */
@@ -436,144 +429,6 @@ class DenseCoeffsBase<Derived, WriteAccessors> : public DenseCoeffsBase<Derived,
     EIGEN_DEVICE_FUNC
     EIGEN_STRONG_INLINE Scalar&
     w() { return (*this)[3]; }
-
-    /** \internal
-      * Stores the given packet of coefficients, at the given row and column of this expression. It is your responsibility
-      * to ensure that a packet really starts there. This method is only available on expressions having the
-      * PacketAccessBit.
-      *
-      * The \a LoadMode parameter may have the value \a #Aligned or \a #Unaligned. Its effect is to select
-      * the appropriate vectorization instruction. Aligned access is faster, but is only possible for packets
-      * starting at an address which is a multiple of the packet size.
-      */
-
-    template<int StoreMode>
-    EIGEN_STRONG_INLINE void writePacket
-    (Index row, Index col, const typename internal::packet_traits<Scalar>::type& val)
-    {
-      eigen_internal_assert(row >= 0 && row < rows()
-                        && col >= 0 && col < cols());
-      derived().template writePacket<StoreMode>(row,col,val);
-    }
-
-
-    /** \internal */
-    template<int StoreMode>
-    EIGEN_STRONG_INLINE void writePacketByOuterInner
-    (Index outer, Index inner, const typename internal::packet_traits<Scalar>::type& val)
-    {
-      writePacket<StoreMode>(rowIndexByOuterInner(outer, inner),
-                            colIndexByOuterInner(outer, inner),
-                            val);
-    }
-
-    /** \internal
-      * Stores the given packet of coefficients, at the given index in this expression. It is your responsibility
-      * to ensure that a packet really starts there. This method is only available on expressions having the
-      * PacketAccessBit and the LinearAccessBit.
-      *
-      * The \a LoadMode parameter may have the value \a Aligned or \a Unaligned. Its effect is to select
-      * the appropriate vectorization instruction. Aligned access is faster, but is only possible for packets
-      * starting at an address which is a multiple of the packet size.
-      */
-    template<int StoreMode>
-    EIGEN_STRONG_INLINE void writePacket
-    (Index index, const typename internal::packet_traits<Scalar>::type& val)
-    {
-      eigen_internal_assert(index >= 0 && index < size());
-      derived().template writePacket<StoreMode>(index,val);
-    }
-
-#ifndef EIGEN_PARSED_BY_DOXYGEN
-
-    /** \internal Copies the coefficient at position (row,col) of other into *this.
-      *
-      * This method is overridden in SwapWrapper, allowing swap() assignments to share 99% of their code
-      * with usual assignments.
-      *
-      * Outside of this internal usage, this method has probably no usefulness. It is hidden in the public API dox.
-      */
-
-    template<typename OtherDerived>
-    EIGEN_DEVICE_FUNC
-    EIGEN_STRONG_INLINE void copyCoeff(Index row, Index col, const DenseBase<OtherDerived>& other)
-    {
-      eigen_internal_assert(row >= 0 && row < rows()
-                        && col >= 0 && col < cols());
-      derived().coeffRef(row, col) = other.derived().coeff(row, col);
-    }
-
-    /** \internal Copies the coefficient at the given index of other into *this.
-      *
-      * This method is overridden in SwapWrapper, allowing swap() assignments to share 99% of their code
-      * with usual assignments.
-      *
-      * Outside of this internal usage, this method has probably no usefulness. It is hidden in the public API dox.
-      */
-
-    template<typename OtherDerived>
-    EIGEN_DEVICE_FUNC
-    EIGEN_STRONG_INLINE void copyCoeff(Index index, const DenseBase<OtherDerived>& other)
-    {
-      eigen_internal_assert(index >= 0 && index < size());
-      derived().coeffRef(index) = other.derived().coeff(index);
-    }
-
-
-    template<typename OtherDerived>
-    EIGEN_DEVICE_FUNC
-    EIGEN_STRONG_INLINE void copyCoeffByOuterInner(Index outer, Index inner, const DenseBase<OtherDerived>& other)
-    {
-      const Index row = rowIndexByOuterInner(outer,inner);
-      const Index col = colIndexByOuterInner(outer,inner);
-      // derived() is important here: copyCoeff() may be reimplemented in Derived!
-      derived().copyCoeff(row, col, other);
-    }
-
-    /** \internal Copies the packet at position (row,col) of other into *this.
-      *
-      * This method is overridden in SwapWrapper, allowing swap() assignments to share 99% of their code
-      * with usual assignments.
-      *
-      * Outside of this internal usage, this method has probably no usefulness. It is hidden in the public API dox.
-      */
-
-    template<typename OtherDerived, int StoreMode, int LoadMode>
-    EIGEN_STRONG_INLINE void copyPacket(Index row, Index col, const DenseBase<OtherDerived>& other)
-    {
-      eigen_internal_assert(row >= 0 && row < rows()
-                        && col >= 0 && col < cols());
-      derived().template writePacket<StoreMode>(row, col,
-        other.derived().template packet<LoadMode>(row, col));
-    }
-
-    /** \internal Copies the packet at the given index of other into *this.
-      *
-      * This method is overridden in SwapWrapper, allowing swap() assignments to share 99% of their code
-      * with usual assignments.
-      *
-      * Outside of this internal usage, this method has probably no usefulness. It is hidden in the public API dox.
-      */
-
-    template<typename OtherDerived, int StoreMode, int LoadMode>
-    EIGEN_STRONG_INLINE void copyPacket(Index index, const DenseBase<OtherDerived>& other)
-    {
-      eigen_internal_assert(index >= 0 && index < size());
-      derived().template writePacket<StoreMode>(index,
-        other.derived().template packet<LoadMode>(index));
-    }
-
-    /** \internal */
-    template<typename OtherDerived, int StoreMode, int LoadMode>
-    EIGEN_STRONG_INLINE void copyPacketByOuterInner(Index outer, Index inner, const DenseBase<OtherDerived>& other)
-    {
-      const Index row = rowIndexByOuterInner(outer,inner);
-      const Index col = colIndexByOuterInner(outer,inner);
-      // derived() is important here: copyCoeff() may be reimplemented in Derived!
-      derived().template copyPacket< OtherDerived, StoreMode, LoadMode>(row, col, other);
-    }
-#endif
-
 };
 
 /** \brief Base class providing direct read-only coefficient access to matrices and arrays.
@@ -593,7 +448,6 @@ class DenseCoeffsBase<Derived, DirectAccessors> : public DenseCoeffsBase<Derived
   public:
 
     typedef DenseCoeffsBase<Derived, ReadOnlyAccessors> Base;
-    typedef typename internal::traits<Derived>::Index Index;
     typedef typename internal::traits<Derived>::Scalar Scalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
 
@@ -668,7 +522,6 @@ class DenseCoeffsBase<Derived, DirectWriteAccessors>
   public:
 
     typedef DenseCoeffsBase<Derived, WriteAccessors> Base;
-    typedef typename internal::traits<Derived>::Index Index;
     typedef typename internal::traits<Derived>::Scalar Scalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
 
@@ -730,14 +583,14 @@ namespace internal {
 template<typename Derived, bool JustReturnZero>
 struct first_aligned_impl
 {
-  static inline typename Derived::Index run(const Derived&)
+  static inline Index run(const Derived&)
   { return 0; }
 };
 
 template<typename Derived>
 struct first_aligned_impl<Derived, false>
 {
-  static inline typename Derived::Index run(const Derived& m)
+  static inline Index run(const Derived& m)
   {
     return internal::first_aligned(&m.const_cast_derived().coeffRef(0,0), m.size());
   }
@@ -749,7 +602,7 @@ struct first_aligned_impl<Derived, false>
   * documentation.
   */
 template<typename Derived>
-static inline typename Derived::Index first_aligned(const Derived& m)
+static inline Index first_aligned(const Derived& m)
 {
   return first_aligned_impl
           <Derived, (Derived::Flags & AlignedBit) || !(Derived::Flags & DirectAccessBit)>
