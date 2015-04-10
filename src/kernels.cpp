@@ -614,7 +614,7 @@ class c_kernel_builder_impl {
 
   void init_random_projection() {
     std::mt19937 rng;
-    std::normal_distribution<Fp> distr{0, 1.0 / to_};
+    std::normal_distribution<Fp> distr{0, Fp{1.0} / to_};
     projection_.setZero(from_, to_);
     for (i64 i = 0; i < from_; ++i) {
       for (i64 j = 0; j < to_; ++j) {
