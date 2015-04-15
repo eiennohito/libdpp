@@ -91,6 +91,8 @@ class c_kernel {
   std::unique_ptr<c_kernel_impl<Fp> > impl_;
 
  public:
+  static c_kernel *from_colwize_array(Fp* data, i64 ndim, i64 size);
+
   c_kernel(c_kernel_impl<Fp> *impl) : impl_{impl} {}
 
   dual_sampling_subspace<Fp> *sampler();

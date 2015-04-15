@@ -722,6 +722,18 @@ void dual_sampling_subspace<Fp>::register_tracer(tracer<Fp> *t) {
 template <typename Fp>
 dual_sampling_subspace<Fp>::~dual_sampling_subspace() {}
 
+template<typename Fp>
+c_kernel<Fp> *c_kernel<Fp>::from_colwize_array(Fp *data, i64 ndim, i64 size) {
+
+  Eigen::Map<typename eigen_typedefs<Fp>::matrix_colmajor, Eigen::Aligned> mapped(data, ndim, size);
+
+  auto matr = typename c_kernel_impl<Fp>::matrix_t(mapped);
+  auto impl_ptr = make_unique<c_kernel_impl<Fp>>(std::move(matr));
+  
+  //auto impl = make_unique<c_kernel_impl>(matrix);
+  return new dpp::c_kernel<Fp>(impl_ptr.release());
+}
+
 template class l_kernel<float>;
 template class l_kernel<double>;
 
@@ -736,4 +748,6 @@ template class c_kernel<double>;
 
 template class dual_sampling_subspace<float>;
 template class dual_sampling_subspace<double>;
+
+
 }
