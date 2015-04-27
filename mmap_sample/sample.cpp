@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
         dpp::c_kernel<double>::from_colwize_array(data_ptr, (i64) ndim, (i64) nvecs)
     };
 
-    std::unique_ptr<dpp::dual_sampling_subspace> sampler { kernel->sampler(20) };
+    std::unique_ptr<dpp::dual_sampling_subspace<double>> sampler { kernel->sampler(20) };
 
     std::vector<i64> out_vec;
 
@@ -52,7 +52,8 @@ int main(int argc, char** argv) {
     i64 *ptr = reinterpret_cast<i64*>(out_reg.get_address());
     std::copy(out_vec.begin(), out_vec.end(), ptr + 1);
     *ptr = (i64) out_vec.size();
-    
+
+    out_reg.flush();
 
     return 0;
 };
