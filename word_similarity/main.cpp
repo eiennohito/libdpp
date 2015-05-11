@@ -134,6 +134,56 @@ std::unique_ptr<options> parse_options(int argc, char **argv) {
   return std::unique_ptr<options>(new options(std::move(opts)));
 }
 
+void read_binary(std::ifstream &input, i64 cnt, std::vector<std::string> &words, dpp::c_kernel_builder<double> &bldr) {
+  bldr.hint_size(cnt);
+  std::vector<float> data_read;
+  std::vector<int> pos_read;
+  std::vector<double> data_internal;
+  std::vector<i64> pos_internal;
+  for (i64 i = 0; i < cnt; ++i) {
+      int hdr[2] = {0};
+      input.read(reinterpret_cast<char *>(hdr), sizeof(hdr));
+      words.push_back(boost::lexical_cast<std::string>(hdr[0]));
+      i64 num = hdr[1];
+      data_read.resize(num);
+      pos_read.resize(num);
+
+      data_internal.reserve(num);
+      pos_internal.reserve(num);
+      data_internal.clear();
+      pos_internal.clear();
+
+      input.read(reinterpret_cast<char *>(pos_read.data()), sizeof(int) * num);
+      input.read(reinterpret_cast<char *>(data_read.data()),
+                 sizeof(float) * num);
+
+      copy(data_read.begin(), data_read.end(),
+                back_inserter(data_internal));
+      copy(pos_read.begin(), pos_read.end(),
+                back_inserter(pos_internal));
+      bldr.append(data_internal.data(), pos_internal.data(), num);
+    }
+}
+
+void read_text(std::ifstream &input, i64 dims, std::vector<std::string> &words, dpp::c_kernel_builder<double> &bldr) {
+  bldr.hint_size(100);
+  std::vector<double> features(dims);
+  std::vector<i64> indices(dims);
+  for (i64 i = 0; i < dims; ++i) {
+      indices[i] = i;
+    }
+
+  while (!input.eof()) {
+      std::string word;
+      input >> word;
+      words.emplace_back(move(word));
+      for (i64 i = 0; i < dims; ++i) {
+        input >> features[i];
+      }
+      bldr.append(features.data(), indices.data(), dims);
+    }
+}
+
 int main(int argc, char **argv) {
 
   auto opts = parse_options(argc, argv);
@@ -186,51 +236,9 @@ int main(int argc, char **argv) {
   dpp::c_kernel_builder<double> bldr(dims, other_dims);
 
   if (opts->binary_input) {
-    bldr.hint_size(cnt);
-    std::vector<float> data_read;
-    std::vector<int> pos_read;
-    std::vector<double> data_internal;
-    std::vector<i64> pos_internal;
-    for (i64 i = 0; i < cnt; ++i) {
-      int hdr[2] = {0};
-      input.read(reinterpret_cast<char *>(hdr), sizeof(hdr));
-      words.push_back(boost::lexical_cast<std::string>(hdr[0]));
-      i64 num = hdr[1];
-      data_read.resize(num);
-      pos_read.resize(num);
-
-      data_internal.reserve(num);
-      pos_internal.reserve(num);
-      data_internal.clear();
-      pos_internal.clear();
-
-      input.read(reinterpret_cast<char *>(pos_read.data()), sizeof(int) * num);
-      input.read(reinterpret_cast<char *>(data_read.data()),
-                 sizeof(float) * num);
-
-      std::copy(data_read.begin(), data_read.end(),
-                std::back_inserter(data_internal));
-      std::copy(pos_read.begin(), pos_read.end(),
-                std::back_inserter(pos_internal));
-      bldr.append(data_internal.data(), pos_internal.data(), num);
-    }
+    read_binary(input, cnt, words, bldr);
   } else {
-    bldr.hint_size(100);
-    std::vector<double> features(dims);
-    std::vector<i64> indices(dims);
-    for (i64 i = 0; i < dims; ++i) {
-      indices[i] = i;
-    }
-
-    while (!input.eof()) {
-      std::string word;
-      input >> word;
-      words.emplace_back(std::move(word));
-      for (i64 i = 0; i < dims; ++i) {
-        input >> features[i];
-      }
-      bldr.append(features.data(), indices.data(), dims);
-    }
+    read_text(input, dims, words, bldr);
   }
 
   auto read_end = std::chrono::high_resolution_clock::now();
