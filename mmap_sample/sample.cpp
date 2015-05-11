@@ -24,36 +24,37 @@ namespace ip = boost::interprocess;
  *    The first one is going to be the size of result data, following are
  *    the selection itself.
  */
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
-    size_t ndim = boost::lexical_cast<size_t>(argv[1]);
-    size_t nvecs = boost::lexical_cast<size_t>(argv[2]);
+  size_t ndim = boost::lexical_cast<size_t>(argv[1]);
+  size_t nvecs = boost::lexical_cast<size_t>(argv[2]);
 
-    char *data_path = argv[3];
-    ip::file_mapping data(data_path, ip::read_only);
-    ip::mapped_region data_reg(data, ip::read_only);
+  char *data_path = argv[3];
+  ip::file_mapping data(data_path, ip::read_only);
+  ip::mapped_region data_reg(data, ip::read_only);
 
-    char *output_path = argv[4];
-    ip::file_mapping output(output_path, ip::read_write);
-    ip::mapped_region out_reg(output, ip::read_write);
+  char *output_path = argv[4];
+  ip::file_mapping output(output_path, ip::read_write);
+  ip::mapped_region out_reg(output, ip::read_write);
 
-    double *data_ptr = reinterpret_cast<double *>(data_reg.get_address());
 
-    std::unique_ptr<dpp::c_kernel<double>> kernel {
-        dpp::c_kernel<double>::from_colwize_array(data_ptr, (i64) ndim, (i64) nvecs)
-    };
+  double *data_ptr = reinterpret_cast<double *>(data_reg.get_address());
 
-    std::unique_ptr<dpp::dual_sampling_subspace<double>> sampler { kernel->sampler(20) };
+  std::unique_ptr<dpp::c_kernel<double>> kernel{
+      dpp::c_kernel<double>::from_colwize_array(data_ptr, (i64) ndim, (i64) nvecs)
+  };
 
-    std::vector<i64> out_vec;
+  std::unique_ptr<dpp::dual_sampling_subspace<double>> sampler{kernel->sampler(20)};
 
-    sampler->greedy(out_vec);
+  std::vector<i64> out_vec;
 
-    i64 *ptr = reinterpret_cast<i64*>(out_reg.get_address());
-    std::copy(out_vec.begin(), out_vec.end(), ptr + 1);
-    *ptr = (i64) out_vec.size();
+  sampler->greedy(out_vec);
 
-    out_reg.flush();
+  i64 *ptr = reinterpret_cast<i64 *>(out_reg.get_address());
+  std::copy(out_vec.begin(), out_vec.end(), ptr + 1);
+  *ptr = (i64) out_vec.size();
 
-    return 0;
+  out_reg.flush();
+
+  return 0;
 };
