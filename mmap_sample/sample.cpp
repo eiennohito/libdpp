@@ -23,6 +23,7 @@ namespace ip = boost::interprocess;
  *    each one is of 64bit.
  *    The first one is going to be the size of result data, following are
  *    the selection itself.
+ * 5) number of samples (20 default)
  */
 int main(int argc, char **argv) {
 
@@ -37,6 +38,11 @@ int main(int argc, char **argv) {
   ip::file_mapping output(output_path, ip::read_write);
   ip::mapped_region out_reg(output, ip::read_write);
 
+  i64 nsamples = 20;
+
+  if (argc == 6) {
+    nsamples = boost::lexical_cast<decltype(nsamples)>(argv[5]);
+  }
 
   double *data_ptr = reinterpret_cast<double *>(data_reg.get_address());
 
@@ -44,7 +50,7 @@ int main(int argc, char **argv) {
       dpp::c_kernel<double>::from_colwize_array(data_ptr, (i64) ndim, (i64) nvecs)
   };
 
-  std::unique_ptr<dpp::dual_sampling_subspace<double>> sampler{kernel->sampler(20)};
+  std::unique_ptr<dpp::dual_sampling_subspace<double>> sampler{kernel->sampler(nsamples)};
 
   std::vector<i64> out_vec;
 
