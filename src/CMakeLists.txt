@@ -1,11 +1,13 @@
 set( sources
-  kernels.cpp
   libdpp_c.cpp
+  common.hpp
+  c_kernel.cpp
+  l_kernel.cpp
 )
 
 set ( our_includes
-  ../includes/kernels.h
-  ../includes/libdpp_c.h
+  ../include/kernels.h
+  ../include/libdpp_c.h
 )
 
 include_directories(${libdpp_INCLUDES})
