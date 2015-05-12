@@ -328,7 +328,7 @@ class sampling_subspace_impl
     }
   }
 
-  void sample(std::vector<i64> &buffer) {
+  void sample(std::vector<i64> &buffer, bool greedy) {
     i64 height = subspace_.rows();
     buffer.reserve(height);
 
@@ -346,15 +346,21 @@ class sampling_subspace_impl
       this->trace(cached_.data(), cached_.size(),
                   TraceType::ProbabilityDistribution);
 
-      auto len = cached_.sum();
-      std::uniform_real_distribution<Fp> distr{0, len};
-      auto prob = distr(kernel_->rng_);
+
       i64 selected = 0;
-      Fp val = 0;
-      auto total = cached_.size();
-      for (; selected < total; ++selected) {
-        val += cached_[selected];
-        if (val > prob) break;
+
+      if (greedy) {
+        selected = *std::max_element(cached_.data(), cached_.data() + cached_.size());
+      } else {
+        auto len = cached_.sum();
+        std::uniform_real_distribution<Fp> distr{0, len};
+        auto prob = distr(kernel_->rng_);
+        Fp val = 0;
+        auto total = cached_.size();
+        for (; selected < total; ++selected) {
+          val += cached_[selected];
+          if (val > prob) break;
+        }
       }
 
       buffer.push_back(selected);
@@ -411,9 +417,22 @@ sampling_subspace<Fp>::sampling_subspace(sampling_subspace<Fp> &&o)
 template <typename Fp>
 std::vector<i64> sampling_subspace<Fp>::sample() {
   std::vector<i64> vec;
-  impl_->reset();
-  impl_->sample(vec);
+  this->sample(vec);
   return std::move(vec);
+}
+
+template <typename Fp>
+i64 sampling_subspace<Fp>::sample(std::vector<i64> &out) {
+  impl_->reset();
+  impl_->sample(out, false);
+  return 0;
+}
+
+template <typename Fp>
+i64 sampling_subspace<Fp>::greedy(std::vector<i64> &out) {
+  impl_->reset();
+  impl_->sample(out, true);
+  return 0;
 }
 
 template <typename Fp>

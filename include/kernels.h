@@ -69,6 +69,10 @@ class sampling_subspace {
 
   std::vector<i64> sample();
 
+  i64 sample(std::vector<i64>& out);
+
+  i64 greedy(std::vector<i64>& out);
+
   sampling_subspace(sampling_subspace &&o);
 
   ~sampling_subspace();
