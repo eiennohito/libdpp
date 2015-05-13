@@ -27,6 +27,8 @@ public:
 
   sampling_subspace_impl<Fp> *sampler(i64 k);
 
+  sampling_subspace_impl<Fp> *sampler_greedy(i64 k);
+
 
   Fp selection_log_probability(const std::vector<i64> &indices) const {
 
@@ -164,6 +166,12 @@ sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler(i64 k) {
 }
 
 template <typename Fp>
+sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler_greedy(i64 k) {
+  return new sampling_subspace_impl<Fp>{this,
+                                        greedy_basis_indices(k)};
+}
+
+template <typename Fp>
 void sampling_subspace<Fp>::register_tracer(tracer<Fp> *ptr) {
   impl_->register_tracer(ptr);
 }
@@ -188,6 +196,12 @@ sampling_subspace<Fp> *l_kernel<Fp>::sampler() {
 template <typename Fp>
 sampling_subspace<Fp> *l_kernel<Fp>::sampler(i64 k) {
   auto impl = impl_->sampler(k);
+  return new sampling_subspace<Fp>{make_unique(impl)};
+}
+
+template <typename Fp>
+sampling_subspace<Fp> *l_kernel<Fp>::sampler_greedy(i64 k) {
+  auto impl = impl_->sampler_greedy(k);
   return new sampling_subspace<Fp>{make_unique(impl)};
 }
 

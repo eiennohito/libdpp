@@ -280,6 +280,12 @@ dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler(i64 k) {
 }
 
 template <typename Fp>
+dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler_greedy(i64 k) {
+  auto impl = new c_sampler_impl<Fp>(impl_.get(), greedy_basis_indices(k));
+  return new dual_sampling_subspace<Fp>(make_unique(impl));
+}
+
+template <typename Fp>
 c_kernel<Fp>::~c_kernel<Fp>() {}
 
 template <typename Fp>

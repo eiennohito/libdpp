@@ -55,6 +55,8 @@ class l_kernel {
 
   sampling_subspace<Fp> *sampler(i64 k);
 
+  sampling_subspace<Fp> *sampler_greedy(i64 k);
+
   Fp selection_log_probability(std::vector<i64> &indices);
 
   ~l_kernel();
@@ -103,6 +105,8 @@ class c_kernel {
 
   dual_sampling_subspace<Fp> *sampler();
   dual_sampling_subspace<Fp> *sampler(i64 k);
+
+  dual_sampling_subspace<Fp> *sampler_greedy(i64 k);
 
   ~c_kernel();
 };
