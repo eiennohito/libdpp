@@ -1,4 +1,6 @@
 #include "common.hpp"
+#include <limits>
+#include <cmath>
 
 namespace dpp {
 
@@ -24,16 +26,25 @@ public:
   sampling_subspace_impl<Fp> *sampler() const;
 
   sampling_subspace_impl<Fp> *sampler(i64 k);
+
+
+  Fp selection_log_probability(const std::vector<i64> &indices) const {
+
+    //1. create a reduction kernel
+    kernel_t reduced(indices.size(), indices.size());
+
+    auto sz = indices.size();
+
+    for (i64 i = 0; i < sz; ++i) {
+      for (i64 j = 0; j < sz; ++j) {
+        reduced(i, j) = kernel()(indices[i], indices[j]);
+      }
+    }
+
+    //2. return result
+    return std::log(reduced.determinant()) - this->normalizer();
+  }
 };
-
-template <typename Fp>
-l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, i64 size) {
-  auto impl = make_unique<typename l_kernel<Fp>::impl_t>();
-  impl->init_from_kernel(data, size, size);
-  impl->decompose();
-  return new l_kernel<Fp>(std::move(impl));
-}
-
 
 template <typename Fp>
 class sampling_subspace_impl
@@ -158,6 +169,14 @@ void sampling_subspace<Fp>::register_tracer(tracer<Fp> *ptr) {
 }
 
 template <typename Fp>
+l_kernel<Fp> *l_kernel<Fp>::from_array(Fp *data, i64 size) {
+  auto impl = make_unique<typename l_kernel<Fp>::impl_t>();
+  impl->init_from_kernel(data, size, size);
+  impl->decompose();
+  return new l_kernel<Fp>(std::move(impl));
+}
+
+template <typename Fp>
 l_kernel<Fp>::~l_kernel<Fp>() {}
 
 template <typename Fp>
@@ -200,6 +219,11 @@ i64 sampling_subspace<Fp>::greedy(std::vector<i64> &out) {
   impl_->reset();
   impl_->sample(out, true);
   return 0;
+}
+
+template <typename Fp>
+Fp l_kernel<Fp>::selection_log_probability(std::vector<i64> &indices) {
+  return this->impl_->selection_log_probability(indices);
 }
 
 template <typename Fp>

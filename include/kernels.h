@@ -55,6 +55,8 @@ class l_kernel {
 
   sampling_subspace<Fp> *sampler(i64 k);
 
+  Fp selection_log_probability(std::vector<i64> &indices);
+
   ~l_kernel();
 };
 

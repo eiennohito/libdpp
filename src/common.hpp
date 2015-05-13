@@ -4,7 +4,7 @@
 #include "Eigen/Dense"
 
 // use Eigen's eigendecomposition
-#include <Eigen/Eigenvalues>
+#include "Eigen/Eigenvalues"
 
 #include <random>
 #include <vector>
@@ -56,6 +56,34 @@ protected:
   Eigen::SelfAdjointEigenSolver<kernel_t> eigen_;
   std::unique_ptr<kernel_t> polynomials_;
 
+  //A normalizer constant for computing subset selection probability
+  Fp normalizer_;
+
+  /**
+   * Compute a normalizing constant for subset selection probability
+   * It is equal to the det(L + I)
+   *
+   * That probability can become very small, so use the log space for the precision.
+   *
+   * Because det(L) is equal to sum of its eigenvalues,
+   * and non-zero eigenvalues are equal for the L and C kernels,
+   * it is possible to use a common function to compute eigenvalues.
+   *
+   * The final piece for this function is the property of eigendecomposition
+   * and determinants so det(A + I) = sum(\lambda_i + 1)
+   */
+  Fp compute_normalizer() const {
+    //compute log(det(L + I))
+
+    auto &ev = this->eigenvalues();
+    auto sz = ev.size();
+    auto tmp = Fp{0};
+    for (i64 i = 0; i < sz; ++i) {
+      tmp += std::log(ev(i) + 1);
+    }
+    return tmp;
+  }
+
 public:
   mutable std::mt19937 rng_{std::random_device()()};
 
@@ -76,6 +104,10 @@ public:
     }
 
     return std::move(vec);
+  }
+
+  Fp normalizer() const {
+    return normalizer_;
   }
 
   /***
@@ -152,7 +184,10 @@ public:
     return std::move(res);
   }
 
-  void decompose() { eigen_.compute(this->derived().kernel()); }
+  void decompose() {
+    eigen_.compute(this->derived().kernel());
+    normalizer_ = compute_normalizer();
+  }
 
   auto eigenvector(i64 pos) const -> decltype(eigen_.eigenvectors().row(pos)) {
     return eigen_.eigenvectors().row(pos);
