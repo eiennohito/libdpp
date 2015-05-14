@@ -51,6 +51,10 @@ int main(int argc, char **argv) {
     nsamples = boost::lexical_cast<decltype(nsamples)>(argv[5]);
   }
 
+  if (argc != 6) {
+    return 1;
+  }
+
   double *data_ptr = reinterpret_cast<double *>(data_reg.get_address());
 
   typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> matrix_t;
@@ -60,11 +64,11 @@ int main(int argc, char **argv) {
   mat = raw.adjoint() * raw;
 
   auto kernel = wrap(dpp::l_kernel<double>::from_array(mat.data(), nvecs));
-  auto sampler = wrap(kernel->sampler(nsamples));
+  auto sampler = wrap(kernel->sampler());
 
   std::vector<i64> out_vec;
 
-  sampler->greedy(out_vec);
+  sampler->greedy_prob_selection(out_vec, nsamples);
 
   i64 *ptr = reinterpret_cast<i64 *>(out_reg.get_address());
   std::copy(out_vec.begin(), out_vec.end(), ptr + 1);
