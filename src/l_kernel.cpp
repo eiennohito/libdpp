@@ -71,6 +71,94 @@ public:
     return ldlt.vectorD().array().log().sum();
   }
 
+  template<typename Tracer>
+  void greedy_selection(std::vector<i64>& indices, i64 maxSel, Tracer tracer) const {
+    typedef typename eigen_typedefs<Fp>::vector vector_t;
+
+    if (maxSel < 1) {
+      return;
+    }
+
+    auto size = kernel_->rows();
+
+    vector_t last(size);
+
+    Fp maxProb = -100;
+    i64 selection;
+
+    for (i64 i = 0; i < size; ++i) {
+      auto val = marginal_kernel_(i, i);
+      last(i) = val;
+      if (val > maxProb) {
+        maxProb = val;
+        selection = i;
+      }
+    }
+
+    tracer(last);
+    
+    last(selection) = 0;
+    indices.push_back(selection);
+
+    if (maxSel == 1) {
+      return;
+    }
+
+    kernel_t cache;
+    vector_t trial, solution;
+    Fp last_item;
+
+    Eigen::LDLT<kernel_t> decomposition;
+
+    for (i64 selectionSize = 1; selectionSize < maxSel; ++selectionSize) {
+
+      cache.resize(selectionSize, selectionSize);
+
+      for (i64 i = 0; i < selectionSize; ++i) {
+        for (i64 j = 0; j <= i; ++j) {
+          cache(i, j) = marginal_kernel_(indices[i], indices[j]);
+        }
+      }
+
+      decomposition.compute(cache);
+
+      auto Adet = decomposition.vectorD().prod();
+
+      trial.resize(selectionSize);
+
+      maxProb = -50000;
+
+      for (i64 idx = 0; idx < size; ++idx) {
+        if (std::find(indices.cbegin(), indices.cend(), idx) != indices.cend()) {
+          continue;
+        }
+
+        last_item = marginal_kernel_(idx, idx);
+
+        for (i64 i = 0; i < selectionSize; ++i) {
+          trial(i) = marginal_kernel_(idx, indices[i]);
+        }
+
+        solution = decomposition.solve(trial);
+
+        //cheating on determinants
+        auto marginal = Adet * (last_item - trial.dot(solution));
+
+        auto prob = marginal - Adet;
+        last(idx) = prob;
+        
+        if (prob > maxProb) {
+          maxProb = prob;
+          selection = idx;
+        }
+      }
+
+      tracer(last);
+      last(selection) = 0;
+      indices.push_back(selection);
+    }
+  }
+
 
 };
 
@@ -179,7 +267,11 @@ public:
     }
   }
 
-  void greedy_probability_selection(std::vector<i64>& out) {
+  void greedy_probability_selection(std::vector<i64>& out, i64 max) {
+    auto tracer = [this](const typename eigen_typedefs<Fp>::vector &data) {
+      this->trace(data.data(), data.size(), TraceType::ProbabilityDistribution);
+    };
+    kernel_->greedy_selection(out, max, tracer);
 
   }
 };
@@ -262,6 +354,12 @@ template <typename Fp>
 i64 sampling_subspace<Fp>::greedy(std::vector<i64> &out) {
   impl_->reset();
   impl_->sample(out, true);
+  return 0;
+}
+
+template <typename Fp>
+i64 sampling_subspace<Fp>::greedy_prob_selection(std::vector<i64> &out, i64 maxItems) {
+  impl_->greedy_probability_selection(out, maxItems);
   return 0;
 }
 

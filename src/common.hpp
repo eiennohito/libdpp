@@ -264,7 +264,7 @@ private:
   tracer<Fp> *tracer_ = 0;
 
 protected:
-  void trace(Fp *data, i64 size, TraceType ttype) {
+  void trace(const Fp * const data, i64 size, TraceType ttype) {
     if (tracer_) {
       tracer_->trace(data, size, ttype);
     }

@@ -35,7 +35,7 @@ enum class TraceType {
 template <typename Fp>
 class tracer {
  public:
-  virtual void trace(Fp *data, i64 count, TraceType type) = 0;
+  virtual void trace(Fp const * const data, i64 count, TraceType type) = 0;
   virtual ~tracer() {}
 };
 
@@ -72,6 +72,8 @@ class sampling_subspace {
   std::vector<i64> sample();
   i64 sample(std::vector<i64>& out);
   i64 greedy(std::vector<i64>& out);
+
+  i64 greedy_prob_selection(std::vector<i64>& out, i64 maxItems);
 
   sampling_subspace(sampling_subspace &&o);
 

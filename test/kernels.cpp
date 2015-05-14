@@ -30,13 +30,13 @@ class storing_tracer : public dpp::tracer<Fp> {
   matrix_t probs_;
 
  public:
-  void trace(Fp *data, i64 size, dpp::TraceType type) override {
+  void trace(Fp const * const data, i64 size, dpp::TraceType type) override {
     typedef Eigen::Map<vector_t> vector_map;
 
     if (type == dpp::TraceType::ProbabilityDistribution) {
       auto rows = probs_.rows();
       probs_.conservativeResize(rows + 1, size);
-      probs_.row(rows) = vector_map(data, size);
+      probs_.row(rows) = vector_map(const_cast<Fp*>(data), size);
       probs_.row(rows).normalize();
     }
   }

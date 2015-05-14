@@ -51,9 +51,18 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
 
   auto selection = sampler->sample();
 
+  std::vector<i64> sel2;
+
+  auto l_sampler = wrap_ptr(l_kernel->sampler());
+  l_sampler->greedy_prob_selection(sel2, 4);
+
   std::cout << "[" << selection[0] << ", "
             << selection[1] << ", "
             << selection[2] << "]" << std::endl;
+
+  std::cout << "[" << sel2[0] << ", "
+  << sel2[1] << ", "
+  << sel2[2] << ", " << sel2[3] << "]" << std::endl;
 
   auto c_prob = c_kernel->selection_log_probability(selection);
   auto l_prob = l_kernel->selection_log_probability(selection);
