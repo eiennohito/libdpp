@@ -12,6 +12,8 @@ class l_kernel_impl : public base_kernel<l_kernel_impl<Fp>, Fp> {
 
   std::unique_ptr<kernel_t> kernel_;
 
+  kernel_t marginal_kernel_;
+
 public:
   kernel_t &kernel() { return *kernel_; }
   const kernel_t &kernel() const { return *kernel_; }
@@ -30,6 +32,22 @@ public:
   sampling_subspace_impl<Fp> *sampler_greedy(i64 k);
 
 
+  virtual void decompose() override {
+    base_kernel<l_kernel_impl<Fp>, Fp>::decompose();
+
+    marginal_kernel_ =
+        (
+            this->eigenvectors() *
+            (this->eigenvalues().array() / (this->eigenvalues().array() + Fp{1.0})).matrix().asDiagonal()
+
+        ) * this->eigenvectors().transpose();
+  #ifdef DPP_TRACE_KERNELS
+    std::cout << "l kernel:\n" << kernel() << "\n";
+    std::cout << "marginal kernel:\n" << marginal_kernel_ << "\n";
+  #endif //DPP_TRACE_KERNELS
+
+  }
+
   Fp selection_log_probability(const std::vector<i64> &indices) const {
 
     //1. create a reduction kernel
@@ -39,13 +57,15 @@ public:
 
     for (i64 i = 0; i < sz; ++i) {
       for (i64 j = 0; j < sz; ++j) {
-        reduced(i, j) = kernel()(indices[i], indices[j]);
+        reduced(i, j) = marginal_kernel_(indices[i], indices[j]);
       }
     }
 
     //2. return result
-    return std::log(reduced.determinant()) - this->normalizer();
+    return std::log(reduced.determinant());
   }
+
+
 };
 
 template <typename Fp>
@@ -151,6 +171,10 @@ public:
 #endif
       this->gram_shmidt_orhonormailze();
     }
+  }
+
+  void greedy_probability_selection(std::vector<i64>& out) {
+
   }
 };
 

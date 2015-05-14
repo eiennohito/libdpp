@@ -184,7 +184,7 @@ public:
     return std::move(res);
   }
 
-  void decompose() {
+  virtual void decompose() {
     eigen_.compute(this->derived().kernel());
     normalizer_ = compute_normalizer();
   }
@@ -202,6 +202,8 @@ public:
   }
 
   i64 cols() const { return this->derived().kernel().cols(); }
+
+  virtual ~base_kernel() {}
 };
 
 template <typename Derived, typename Fp>
