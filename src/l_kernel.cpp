@@ -41,10 +41,10 @@ public:
             (this->eigenvalues().array() / (this->eigenvalues().array() + Fp{1.0})).matrix().asDiagonal()
 
         ) * this->eigenvectors().transpose();
-  #ifdef DPP_TRACE_KERNELS
+#ifdef DPP_TRACE_KERNELS
     std::cout << "l kernel:\n" << kernel() << "\n";
     std::cout << "marginal kernel:\n" << marginal_kernel_ << "\n";
-  #endif //DPP_TRACE_KERNELS
+#endif //DPP_TRACE_KERNELS
 
   }
 
@@ -60,6 +60,10 @@ public:
         reduced(i, j) = marginal_kernel_(indices[i], indices[j]);
       }
     }
+
+#ifdef DPP_TRACE_KERNELS
+    std::cout << "marginal selection kernel (L->K):\n" << reduced << "\n";
+#endif //DPP_TRACE_KERNELS
 
     Eigen::LDLT<kernel_t> ldlt(reduced);
 
