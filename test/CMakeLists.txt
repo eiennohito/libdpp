@@ -1,6 +1,7 @@
 set( sources
   main.cpp
   kernels.cpp
+  selection_probability.cpp
 )
 
 add_executable(dpp_tests

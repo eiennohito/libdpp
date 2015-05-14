@@ -31,6 +31,46 @@ public:
 
   matrix_t &matrix() { return matrix_; }
   const matrix_t &matrix() const { return matrix_; }
+
+  Fp selection_log_probability(const std::vector<i64> &indices) const {
+
+    //1. create a reduction kernel
+    kernel_t reduced(indices.size(), indices.size());
+    reduced.setZero();
+
+    auto sz = indices.size();
+    auto ndim = this->matrix().cols();
+
+    kernel_t selected_items;
+    selected_items.resize(sz, ndim);
+
+    for (i64 i = 0; i < sz; ++i) {
+      selected_items.row(i) = this->matrix().row(indices[i]);
+    }
+
+    typename eigen_typedefs<Fp>::vector vec(sz);
+
+    for (i64 n = 0; n < ndim; ++n) {
+
+      vec = this->eigenvector(n) * selected_items.transpose();
+      auto mplier = 1 / (this->eigenvalues()(n) + 1);
+
+      for (i64 i = 0; i < sz; ++i) {
+        auto step_mplier = mplier * vec(i);
+        reduced(i, i) += step_mplier * vec(i);
+        for (i64 j = i + 1; j < sz; ++j) {
+          auto val = step_mplier * vec(j);
+          reduced(i, j) += val;
+          reduced(j, i) += val;
+        }
+      }
+    }
+
+
+    //2. return result
+    return std::log(reduced.determinant());
+  }
+
 };
 
 template <typename Fp>
@@ -281,7 +321,9 @@ dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler(i64 k) {
 
 template <typename Fp>
 dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler_greedy(i64 k) {
-  auto impl = new c_sampler_impl<Fp>(impl_.get(), greedy_basis_indices(k));
+  auto impl = new c_sampler_impl<Fp>(impl_.get(),
+                                     greedy_basis_indices(k,
+                                                          impl_->kernel().rows()));
   return new dual_sampling_subspace<Fp>(make_unique(impl));
 }
 
@@ -325,6 +367,11 @@ c_kernel<Fp> *c_kernel<Fp>::from_colwize_array(Fp *data, i64 ndim, i64 size) {
 
   //auto impl = make_unique<c_kernel_impl>(matrix);
   return new dpp::c_kernel<Fp>(impl_ptr.release());
+}
+
+template <typename Fp>
+Fp c_kernel<Fp>::selection_log_probability(std::vector<i64> &indices) {
+  return this->impl_->selection_log_probability(indices);
 }
 
 //explicit instantiations

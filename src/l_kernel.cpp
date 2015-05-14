@@ -168,7 +168,7 @@ sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler(i64 k) {
 template <typename Fp>
 sampling_subspace_impl<Fp> *l_kernel_impl<Fp>::sampler_greedy(i64 k) {
   return new sampling_subspace_impl<Fp>{this,
-                                        greedy_basis_indices(k)};
+                                        greedy_basis_indices(k, this->kernel().rows())};
 }
 
 template <typename Fp>

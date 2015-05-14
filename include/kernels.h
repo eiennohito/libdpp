@@ -52,9 +52,7 @@ class l_kernel {
   static l_kernel *from_array(Fp *data, i64 size);
 
   sampling_subspace<Fp> *sampler();
-
   sampling_subspace<Fp> *sampler(i64 k);
-
   sampling_subspace<Fp> *sampler_greedy(i64 k);
 
   Fp selection_log_probability(std::vector<i64> &indices);
@@ -72,9 +70,7 @@ class sampling_subspace {
   void register_tracer(tracer<Fp> *ptr);
 
   std::vector<i64> sample();
-
   i64 sample(std::vector<i64>& out);
-
   i64 greedy(std::vector<i64>& out);
 
   sampling_subspace(sampling_subspace &&o);
@@ -105,8 +101,9 @@ class c_kernel {
 
   dual_sampling_subspace<Fp> *sampler();
   dual_sampling_subspace<Fp> *sampler(i64 k);
-
   dual_sampling_subspace<Fp> *sampler_greedy(i64 k);
+
+  Fp selection_log_probability(std::vector<i64> &indices);
 
   ~c_kernel();
 };

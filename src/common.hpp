@@ -272,10 +272,10 @@ public:
   void register_tracer(tracer<Fp> *tracer) { tracer_ = tracer; }
 };
 
-inline std::vector<i64> greedy_basis_indices(i64 k) {
+inline std::vector<i64> greedy_basis_indices(i64 k, i64 n) {
   std::vector<i64> indices(k);
   for (i64 i = 0; i < k; ++i) {
-    indices[i] = i;
+    indices[i] = n - i;
   }
   return indices;
 }
