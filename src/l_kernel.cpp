@@ -61,8 +61,10 @@ public:
       }
     }
 
+    Eigen::LDLT<kernel_t> ldlt(reduced);
+
     //2. return result
-    return std::log(reduced.determinant());
+    return ldlt.vectorD().array().log().sum();
   }
 
 
