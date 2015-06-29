@@ -24,7 +24,7 @@ class prob_sampler : public dpp::tracer<double> {
   std::vector<double> data_;
 
  public:
-  void trace(double *data, i64 size, dpp::TraceType tt) override {
+  void trace(double const * const data, i64 size, dpp::TraceType tt) override {
     if (tt == dpp::TraceType::ProbabilityDistribution) {
       size_ = size;
       auto pos = data_.size();
