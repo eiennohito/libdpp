@@ -91,7 +91,7 @@ public:
     std::vector<i64> vec;
     vec.reserve(static_cast<i64>(
                     sqrt(this->derived().kernel().rows())));  // reserve some memory
-    auto &eigen_values = eigenvalues().array();
+    auto &&eigen_values = eigenvalues().array();
 
     std::uniform_real_distribution<Fp> distr{0, 1};
     for (i64 i = 0; i < eigen_values.cols(); ++i) {
