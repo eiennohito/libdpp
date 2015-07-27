@@ -28,7 +28,7 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
                         1, 0, 0, 0, 1, 1,
                         0, 0.1, 0, 1, 1, 1};
 
-    i64 row_cnt = sizeof(data) / (sizeof(double) * dim);
+  i64 row_cnt = sizeof(data) / (sizeof(double) * dim);
 
 
   auto c_kernel = wrap_ptr(dpp::c_kernel<double>::from_colwize_array(data, dim, row_cnt));
