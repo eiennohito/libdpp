@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <memory>
 
+using namespace dpp;
+
 template <typename T>
 std::unique_ptr<T> wrap_ptr(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -31,8 +33,8 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
   i64 row_cnt = sizeof(data) / (sizeof(double) * dim);
 
 
-  auto c_kernel = wrap_ptr(dpp::c_kernel<double>::from_colwize_array(data, dim, row_cnt));
-  auto sampler = wrap_ptr(c_kernel->sampler(3));
+  auto ckern = wrap_ptr(c_kernel<double>::from_colwize_array(data, dim, row_cnt));
+  auto sampler = wrap_ptr(ckern->sampler(3));
 
   std::vector<double> l_data;
 
@@ -46,14 +48,13 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
     }
   }
 
-  auto l_kernel = dpp::l_kernel<double>::from_array(l_data.data(), row_cnt);
-
+  auto lkern = wrap_ptr(l_kernel<double>::from_array(l_data.data(), row_cnt));
 
   auto selection = sampler->sample();
 
   std::vector<i64> sel2;
 
-  auto l_sampler = wrap_ptr(l_kernel->sampler());
+  auto l_sampler = wrap_ptr(lkern->sampler());
   l_sampler->greedy_prob_selection(sel2, 4);
 
   std::cout << "[" << selection[0] << ", "
@@ -64,8 +65,8 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
   << sel2[1] << ", "
   << sel2[2] << ", " << sel2[3] << "]" << std::endl;
 
-  auto c_prob = c_kernel->selection_log_probability(selection);
-  auto l_prob = l_kernel->selection_log_probability(selection);
+  auto c_prob = ckern->selection_log_probability(selection);
+  auto l_prob = lkern->selection_log_probability(selection);
   EXPECT_FLOAT_EQ(c_prob, l_prob);
 
 }

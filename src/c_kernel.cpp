@@ -48,11 +48,20 @@ public:
       selected_items.row(i) = this->matrix().row(indices[i]);
     }
 
+    kernel_t mods = this->eigenvectors();
+
+    for (i64 i = 0; i < mods.rows(); ++i) {
+      mods.col(i).array() /= std::sqrt(1 + this->eigenvalues()(i));
+    }
+
+    /*
+
     typename eigen_typedefs<Fp>::vector vec(sz);
 
     for (i64 n = 0; n < ndim; ++n) {
 
-      vec = this->eigenvector(n) * selected_items.transpose();
+      auto &&evec = this->eigenvector(n);
+      vec = selected_items * evec.adjoint();
       auto mplier = 1 / (this->eigenvalues()(n) + 1);
 
       for (i64 i = 0; i < sz; ++i) {
@@ -64,11 +73,16 @@ public:
           reduced(j, i) += val;
         }
       }
-    }
+    } */
 
+    selected_items *= mods;
+
+    reduced = selected_items * selected_items.adjoint();
+
+    Eigen::LDLT<kernel_t> distr(reduced);
 
     //2. return result
-    return std::log(reduced.determinant());
+    return distr.vectorD().array().log().sum();
   }
 
 };
@@ -358,7 +372,8 @@ dual_sampling_subspace<Fp>::~dual_sampling_subspace() {}
 template<typename Fp>
 c_kernel<Fp> *c_kernel<Fp>::from_colwize_array(Fp *data, i64 ndim, i64 size) {
 
-  Eigen::Map<typename eigen_typedefs<Fp>::matrix_colmajor, Eigen::Aligned> mapped(data, size, ndim);
+  Eigen::Map<typename eigen_typedefs<Fp>::matrix_colmajor, Eigen::Unaligned, Eigen::Stride<1, Eigen::Dynamic>>
+      mapped(data, size, ndim, Eigen::Stride<1, Eigen::Dynamic>(1, ndim));
 
   auto matr = typename c_kernel_impl<Fp>::matrix_t(mapped);
   auto impl_ptr = make_unique<c_kernel_impl<Fp>>(std::move(matr));
