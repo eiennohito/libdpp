@@ -101,7 +101,7 @@
 
 
 /// \internal EIGEN_GNUC_STRICT set to 1 if the compiler is really GCC and not a compatible compiler (e.g., ICC, clang, mingw, etc.)
-#if EIGEN_COMP_GNUC && !(EIGEN_COMP_CLANG || EIGEN_COMP_CLANG || EIGEN_COMP_MINGW || EIGEN_COMP_PGI || EIGEN_COMP_IBM || EIGEN_COMP_ARM )
+#if EIGEN_COMP_GNUC && !(EIGEN_COMP_CLANG || EIGEN_COMP_ICC || EIGEN_COMP_MINGW || EIGEN_COMP_PGI || EIGEN_COMP_IBM || EIGEN_COMP_ARM )
   #define EIGEN_COMP_GNUC_STRICT 1
 #else
   #define EIGEN_COMP_GNUC_STRICT 0
@@ -283,6 +283,19 @@
   #define EIGEN_OS_WIN_STRICT 0
 #endif
 
+/// \internal EIGEN_OS_SUN set to 1 if the OS is SUN
+#if (defined(sun) || defined(__sun)) && !(defined(__SVR4) || defined(__svr4__))
+  #define EIGEN_OS_SUN 1
+#else
+  #define EIGEN_OS_SUN 0
+#endif
+
+/// \internal EIGEN_OS_SOLARIS set to 1 if the OS is Solaris
+#if (defined(sun) || defined(__sun)) && (defined(__SVR4) || defined(__svr4__))
+  #define EIGEN_OS_SOLARIS 1
+#else
+  #define EIGEN_OS_SOLARIS 0
+#endif
 
 
 
@@ -397,9 +410,22 @@
 #endif
 
 // Does the compiler support const expressions?
-#if (defined(__plusplus) && __cplusplus >= 201402L) || \
+#ifdef __CUDACC__
+  // Const expressions are not supported regardless of what host compiler is used 
+#elif (defined(__cplusplus) && __cplusplus >= 201402L) || \
     EIGEN_GNUC_AT_LEAST(4,9)
 #define EIGEN_HAS_CONSTEXPR 1
+#endif
+
+// Does the compiler support C++11 math?
+// Let's be conservative and enable the default C++11 implementation only if we are sure it exists
+#ifndef EIGEN_HAS_CXX11_MATH
+  #if (__cplusplus >= 201103L) && (EIGEN_COMP_GNUC_STRICT || EIGEN_COMP_CLANG || EIGEN_COMP_MSVC || EIGEN_COMP_ICC)  \
+      && (EIGEN_ARCH_i386_OR_x86_64) && (EIGEN_OS_GNULINUX || EIGEN_OS_WIN_STRICT || EIGEN_OS_MAC)
+    #define EIGEN_HAS_CXX11_MATH 1
+  #else
+    #define EIGEN_HAS_CXX11_MATH 0
+  #endif
 #endif
 
 /** Allows to disable some optimizations which might affect the accuracy of the result.
@@ -579,6 +605,7 @@ namespace Eigen {
   #error Please tell me what is the equivalent of __attribute__((aligned(n))) for your compiler
 #endif
 
+#define EIGEN_ALIGN8  EIGEN_ALIGN_TO_BOUNDARY(8)
 #define EIGEN_ALIGN16 EIGEN_ALIGN_TO_BOUNDARY(16)
 #define EIGEN_ALIGN32 EIGEN_ALIGN_TO_BOUNDARY(32)
 #define EIGEN_ALIGN_DEFAULT EIGEN_ALIGN_TO_BOUNDARY(EIGEN_ALIGN_BYTES)
@@ -620,7 +647,7 @@ namespace Eigen {
 // just an empty macro !
 #define EIGEN_EMPTY
 
-#if EIGEN_COMP_MSVC_STRICT && EIGEN_COMP_MSVC < 1900
+#if EIGEN_COMP_MSVC_STRICT && EIGEN_COMP_MSVC < 1900 // for older MSVC versions using the base operator is sufficient (cf Bug 1000)
   #define EIGEN_INHERIT_ASSIGNMENT_EQUAL_OPERATOR(Derived) \
     using Base::operator =;
 #elif EIGEN_COMP_CLANG // workaround clang bug (see http://forum.kde.org/viewtopic.php?f=74&t=102653)
@@ -639,6 +666,11 @@ namespace Eigen {
     }
 #endif
 
+
+/** \internal
+ * \brief Macro to manually inherit assignment operators.
+ * This is necessary, because the implicitly defined assignment operator gets deleted when a custom operator= is defined.
+ */
 #define EIGEN_INHERIT_ASSIGNMENT_OPERATORS(Derived) EIGEN_INHERIT_ASSIGNMENT_EQUAL_OPERATOR(Derived)
 
 /**
@@ -655,7 +687,7 @@ namespace Eigen {
   typedef typename Eigen::internal::traits<Derived>::Scalar Scalar; /*!< \brief Numeric type, e.g. float, double, int or std::complex<float>. */ \
   typedef typename Eigen::NumTraits<Scalar>::Real RealScalar; /*!< \brief The underlying numeric type for composed scalar types. \details In cases where Scalar is e.g. std::complex<T>, T were corresponding to RealScalar. */ \
   typedef typename Base::CoeffReturnType CoeffReturnType; /*!< \brief The return type for coefficient access. \details Depending on whether the object allows direct coefficient access (e.g. for a MatrixXd), this type is either 'const Scalar&' or simply 'Scalar' for objects that do not allow direct coefficient access. */ \
-  typedef typename Eigen::internal::nested<Derived>::type Nested; \
+  typedef typename Eigen::internal::ref_selector<Derived>::type Nested; \
   typedef typename Eigen::internal::traits<Derived>::StorageKind StorageKind; \
   typedef typename Eigen::internal::traits<Derived>::StorageIndex StorageIndex; \
   enum { RowsAtCompileTime = Eigen::internal::traits<Derived>::RowsAtCompileTime, \
@@ -728,8 +760,13 @@ namespace Eigen {
 #  define EIGEN_TRY try
 #  define EIGEN_CATCH(X) catch (X)
 #else
-#  define EIGEN_THROW_X(X) std::abort()
-#  define EIGEN_THROW std::abort()
+#  ifdef __CUDA_ARCH__
+#    define EIGEN_THROW_X(X) asm("trap;") return {}
+#    define EIGEN_THROW asm("trap;"); return {}
+#  else
+#    define EIGEN_THROW_X(X) std::abort()
+#    define EIGEN_THROW std::abort()
+#  endif
 #  define EIGEN_TRY if (true)
 #  define EIGEN_CATCH(X) else
 #endif

@@ -49,6 +49,8 @@ template<typename Derived> class DenseBase
   public:
     using internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
                 typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>::operator*;
+    using internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
+                typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>::operator/;
 
 
     /** Inner iterator type to iterate over the coefficients of a row or column.
@@ -66,7 +68,14 @@ template<typename Derived> class DenseBase
      */
     typedef typename internal::traits<Derived>::StorageIndex StorageIndex;
 
+    /** The numeric type of the expression' coefficients, e.g. float, double, int or std::complex<float>, etc. */
     typedef typename internal::traits<Derived>::Scalar Scalar;
+    
+    /** The numeric type of the expression' coefficients, e.g. float, double, int or std::complex<float>, etc.
+      *
+      * It is an alias for the Scalar type */
+    typedef Scalar value_type;
+    
     typedef typename internal::packet_traits<Scalar>::type PacketScalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
 
@@ -171,6 +180,35 @@ template<typename Derived> class DenseBase
     };
 
     enum { IsPlainObjectBase = 0 };
+    
+    /** The plain matrix type corresponding to this expression.
+      * \sa PlainObject */
+    typedef Matrix<typename internal::traits<Derived>::Scalar,
+                internal::traits<Derived>::RowsAtCompileTime,
+                internal::traits<Derived>::ColsAtCompileTime,
+                AutoAlign | (internal::traits<Derived>::Flags&RowMajorBit ? RowMajor : ColMajor),
+                internal::traits<Derived>::MaxRowsAtCompileTime,
+                internal::traits<Derived>::MaxColsAtCompileTime
+          > PlainMatrix;
+    
+    /** The plain array type corresponding to this expression.
+      * \sa PlainObject */
+    typedef Array<typename internal::traits<Derived>::Scalar,
+                internal::traits<Derived>::RowsAtCompileTime,
+                internal::traits<Derived>::ColsAtCompileTime,
+                AutoAlign | (internal::traits<Derived>::Flags&RowMajorBit ? RowMajor : ColMajor),
+                internal::traits<Derived>::MaxRowsAtCompileTime,
+                internal::traits<Derived>::MaxColsAtCompileTime
+          > PlainArray;
+
+    /** \brief The plain matrix or array type corresponding to this expression.
+      *
+      * This is not necessarily exactly the return type of eval(). In the case of plain matrices,
+      * the return type of eval() is a const reference to a matrix, not a matrix! It is however guaranteed
+      * that the return type of eval() is either PlainObject or const PlainObject&.
+      */
+    typedef typename internal::conditional<internal::is_same<typename internal::traits<Derived>::XprKind,MatrixXpr >::value,
+                                 PlainMatrix, PlainArray>::type PlainObject;
 
     /** \returns the number of nonzero coefficients which is in practice the number
       * of stored coefficients. */
@@ -221,22 +259,21 @@ template<typename Derived> class DenseBase
       * nothing else.
       */
     EIGEN_DEVICE_FUNC
-    void resize(Index nbRows, Index nbCols)
+    void resize(Index rows, Index cols)
     {
-      EIGEN_ONLY_USED_FOR_DEBUG(nbRows);
-      EIGEN_ONLY_USED_FOR_DEBUG(nbCols);
-      eigen_assert(nbRows == this->rows() && nbCols == this->cols()
+      EIGEN_ONLY_USED_FOR_DEBUG(rows);
+      EIGEN_ONLY_USED_FOR_DEBUG(cols);
+      eigen_assert(rows == this->rows() && cols == this->cols()
                 && "DenseBase::resize() does not actually allow to resize.");
     }
 
 #ifndef EIGEN_PARSED_BY_DOXYGEN
-
     /** \internal Represents a matrix with all coefficients equal to one another*/
-    typedef CwiseNullaryOp<internal::scalar_constant_op<Scalar>,Derived> ConstantReturnType;
+    typedef CwiseNullaryOp<internal::scalar_constant_op<Scalar>,PlainObject> ConstantReturnType;
     /** \internal Represents a vector with linearly spaced coefficients that allows sequential access only. */
-    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,false>,Derived> SequentialLinSpacedReturnType;
+    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,false>,PlainObject> SequentialLinSpacedReturnType;
     /** \internal Represents a vector with linearly spaced coefficients that allows random access. */
-    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,true>,Derived> RandomAccessLinSpacedReturnType;
+    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,true>,PlainObject> RandomAccessLinSpacedReturnType;
     /** \internal the return type of MatrixBase::eigenvalues() */
     typedef Matrix<typename NumTraits<typename internal::traits<Derived>::Scalar>::Real, internal::traits<Derived>::ColsAtCompileTime, 1> EigenvaluesReturnType;
 
@@ -269,13 +306,12 @@ template<typename Derived> class DenseBase
     EIGEN_DEVICE_FUNC
     Derived& operator=(const ReturnByValue<OtherDerived>& func);
 
-#ifndef EIGEN_PARSED_BY_DOXYGEN
-    /** Copies \a other into *this without evaluating other. \returns a reference to *this.
+    /** \ínternal
+      * Copies \a other into *this without evaluating other. \returns a reference to *this.
       * \deprecated */
     template<typename OtherDerived>
     EIGEN_DEVICE_FUNC
     Derived& lazyAssign(const DenseBase<OtherDerived>& other);
-#endif // not EIGEN_PARSED_BY_DOXYGEN
 
     EIGEN_DEVICE_FUNC
     CommaInitializer<Derived> operator<< (const Scalar& s);
@@ -316,13 +352,13 @@ template<typename Derived> class DenseBase
     LinSpaced(const Scalar& low, const Scalar& high);
 
     template<typename CustomNullaryOp> EIGEN_DEVICE_FUNC
-    static const CwiseNullaryOp<CustomNullaryOp, Derived>
+    static const CwiseNullaryOp<CustomNullaryOp, PlainObject>
     NullaryExpr(Index rows, Index cols, const CustomNullaryOp& func);
     template<typename CustomNullaryOp> EIGEN_DEVICE_FUNC
-    static const CwiseNullaryOp<CustomNullaryOp, Derived>
+    static const CwiseNullaryOp<CustomNullaryOp, PlainObject>
     NullaryExpr(Index size, const CustomNullaryOp& func);
     template<typename CustomNullaryOp> EIGEN_DEVICE_FUNC
-    static const CwiseNullaryOp<CustomNullaryOp, Derived>
+    static const CwiseNullaryOp<CustomNullaryOp, PlainObject>
     NullaryExpr(const CustomNullaryOp& func);
 
     EIGEN_DEVICE_FUNC static const ConstantReturnType Zero(Index rows, Index cols);
@@ -429,8 +465,7 @@ template<typename Derived> class DenseBase
 
     template<typename BinaryOp>
     EIGEN_DEVICE_FUNC
-    typename internal::result_of<BinaryOp(typename internal::traits<Derived>::Scalar,typename internal::traits<Derived>::Scalar)>::type
-    redux(const BinaryOp& func) const;
+    Scalar redux(const BinaryOp& func) const;
 
     template<typename Visitor>
     EIGEN_DEVICE_FUNC
@@ -456,14 +491,35 @@ template<typename Derived> class DenseBase
     typedef VectorwiseOp<Derived, Vertical> ColwiseReturnType;
     typedef const VectorwiseOp<const Derived, Vertical> ConstColwiseReturnType;
 
-    ConstRowwiseReturnType rowwise() const;
-    RowwiseReturnType rowwise();
-    ConstColwiseReturnType colwise() const;
-    ColwiseReturnType colwise();
+    /** \returns a VectorwiseOp wrapper of *this providing additional partial reduction operations
+    *
+    * Example: \include MatrixBase_rowwise.cpp
+    * Output: \verbinclude MatrixBase_rowwise.out
+    *
+    * \sa colwise(), class VectorwiseOp, \ref TutorialReductionsVisitorsBroadcasting
+    */
+    //Code moved here due to a CUDA compiler bug
+    EIGEN_DEVICE_FUNC inline ConstRowwiseReturnType rowwise() const {
+      return ConstRowwiseReturnType(derived());
+    }
+    EIGEN_DEVICE_FUNC RowwiseReturnType rowwise();
 
-    static const CwiseNullaryOp<internal::scalar_random_op<Scalar>,Derived> Random(Index rows, Index cols);
-    static const CwiseNullaryOp<internal::scalar_random_op<Scalar>,Derived> Random(Index size);
-    static const CwiseNullaryOp<internal::scalar_random_op<Scalar>,Derived> Random();
+    /** \returns a VectorwiseOp wrapper of *this providing additional partial reduction operations
+    *
+    * Example: \include MatrixBase_colwise.cpp
+    * Output: \verbinclude MatrixBase_colwise.out
+    *
+    * \sa rowwise(), class VectorwiseOp, \ref TutorialReductionsVisitorsBroadcasting
+    */
+    EIGEN_DEVICE_FUNC inline ConstColwiseReturnType colwise() const {
+      return ConstColwiseReturnType(derived());
+    }
+    EIGEN_DEVICE_FUNC ColwiseReturnType colwise();
+
+    typedef CwiseNullaryOp<internal::scalar_random_op<Scalar>,PlainObject> RandomReturnType;
+    static const RandomReturnType Random(Index rows, Index cols);
+    static const RandomReturnType Random(Index size);
+    static const RandomReturnType Random();
 
     template<typename ThenDerived,typename ElseDerived>
     const Select<Derived,ThenDerived,ElseDerived>
@@ -481,14 +537,33 @@ template<typename Derived> class DenseBase
     template<int p> RealScalar lpNorm() const;
 
     template<int RowFactor, int ColFactor>
+    EIGEN_DEVICE_FUNC
     const Replicate<Derived,RowFactor,ColFactor> replicate() const;
-    const Replicate<Derived,Dynamic,Dynamic> replicate(Index rowFacor,Index colFactor) const;
+    /**
+    * \return an expression of the replication of \c *this
+    *
+    * Example: \include MatrixBase_replicate_int_int.cpp
+    * Output: \verbinclude MatrixBase_replicate_int_int.out
+    *
+    * \sa VectorwiseOp::replicate(), DenseBase::replicate<int,int>(), class Replicate
+    */
+    //Code moved here due to a CUDA compiler bug
+    EIGEN_DEVICE_FUNC
+    const Replicate<Derived, Dynamic, Dynamic> replicate(Index rowFactor, Index colFactor) const
+    {
+      return Replicate<Derived, Dynamic, Dynamic>(derived(), rowFactor, colFactor);
+    }
 
     typedef Reverse<Derived, BothDirections> ReverseReturnType;
     typedef const Reverse<const Derived, BothDirections> ConstReverseReturnType;
-    ReverseReturnType reverse();
-    ConstReverseReturnType reverse() const;
-    void reverseInPlace();
+    EIGEN_DEVICE_FUNC ReverseReturnType reverse();
+    /** This is the const version of reverse(). */
+    //Code moved here due to a CUDA compiler bug
+    EIGEN_DEVICE_FUNC ConstReverseReturnType reverse() const
+    {
+      return ConstReverseReturnType(derived());
+    }
+    EIGEN_DEVICE_FUNC void reverseInPlace();
 
 #define EIGEN_CURRENT_STORAGE_BASE_CLASS Eigen::DenseBase
 #   include "../plugins/BlockMethods.h"

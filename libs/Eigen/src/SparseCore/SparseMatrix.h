@@ -60,7 +60,7 @@ template<typename _Scalar, int _Options, typename _Index, int DiagIndex>
 struct traits<Diagonal<SparseMatrix<_Scalar, _Options, _Index>, DiagIndex> >
 {
   typedef SparseMatrix<_Scalar, _Options, _Index> MatrixType;
-  typedef typename nested<MatrixType>::type MatrixTypeNested;
+  typedef typename ref_selector<MatrixType>::type MatrixTypeNested;
   typedef typename remove_reference<MatrixTypeNested>::type _MatrixTypeNested;
 
   typedef _Scalar Scalar;
@@ -97,8 +97,8 @@ class SparseMatrix
     using Base::isCompressed;
     using Base::nonZeros;
     _EIGEN_SPARSE_PUBLIC_INTERFACE(SparseMatrix)
-    EIGEN_SPARSE_INHERIT_ASSIGNMENT_OPERATOR(SparseMatrix, +=)
-    EIGEN_SPARSE_INHERIT_ASSIGNMENT_OPERATOR(SparseMatrix, -=)
+    using Base::operator+=;
+    using Base::operator-=;
 
     typedef MappedSparseMatrix<Scalar,Flags> Map;
     typedef Diagonal<SparseMatrix> DiagonalReturnType;
@@ -262,22 +262,25 @@ class SparseMatrix
     #ifdef EIGEN_PARSED_BY_DOXYGEN
     /** Preallocates \a reserveSize[\c j] non zeros for each column (resp. row) \c j.
       *
-      * This function turns the matrix in non-compressed mode */
+      * This function turns the matrix in non-compressed mode.
+      * 
+      * The type \c SizesType must expose the following interface:
+        \code
+        typedef value_type;
+        const value_type& operator[](i) const;
+        \endcode
+      * for \c i in the [0,this->outerSize()[ range.
+      * Typical choices include std::vector<int>, Eigen::VectorXi, Eigen::VectorXi::Constant, etc.
+      */
     template<class SizesType>
     inline void reserve(const SizesType& reserveSizes);
     #else
     template<class SizesType>
-    inline void reserve(const SizesType& reserveSizes, const typename SizesType::value_type& enableif = typename SizesType::value_type())
-    {
-      EIGEN_UNUSED_VARIABLE(enableif);
-      reserveInnerVectors(reserveSizes);
-    }
-    template<class SizesType>
-    inline void reserve(const SizesType& reserveSizes, const typename SizesType::Scalar& enableif =
+    inline void reserve(const SizesType& reserveSizes, const typename SizesType::value_type& enableif =
     #if (!EIGEN_COMP_MSVC) || (EIGEN_COMP_MSVC>=1500) // MSVC 2005 fails to compile with this typename
         typename
     #endif
-        SizesType::Scalar())
+        SizesType::value_type())
     {
       EIGEN_UNUSED_VARIABLE(enableif);
       reserveInnerVectors(reserveSizes);
@@ -692,6 +695,15 @@ class SparseMatrix
       initAssignment(other);
       other.evalTo(*this);
     }
+    
+    /** \brief Copy constructor with in-place evaluation */
+    template<typename OtherDerived>
+    explicit SparseMatrix(const DiagonalBase<OtherDerived>& other)
+      : Base(), m_outerSize(0), m_innerSize(0), m_outerIndex(0), m_innerNonZeros(0)
+    {
+      check_template_parameters();
+      *this = other.derived();
+    }
 
     /** Swaps the content of two sparse matrices of the same type.
       * This is a fast operation that simply swaps the underlying pointers and parameters. */
@@ -722,6 +734,9 @@ class SparseMatrix
       }
       else if(this!=&other)
       {
+        #ifdef EIGEN_SPARSE_CREATE_TEMPORARY_PLUGIN
+          EIGEN_SPARSE_CREATE_TEMPORARY_PLUGIN
+        #endif
         initAssignment(other);
         if(other.isCompressed())
         {
@@ -789,10 +804,8 @@ class SparseMatrix
       std::free(m_innerNonZeros);
     }
 
-#ifndef EIGEN_PARSED_BY_DOXYGEN
     /** Overloaded for performance */
     Scalar sum() const;
-#endif
     
 #   ifdef EIGEN_SPARSEMATRIX_PLUGIN
 #     include EIGEN_SPARSEMATRIX_PLUGIN
@@ -1118,9 +1131,9 @@ typename SparseMatrix<_Scalar,_Options,_Index>::Scalar& SparseMatrix<_Scalar,_Op
       //     so that the entire free-space is allocated to the current inner-vector.
       eigen_internal_assert(data_end < m_data.allocatedSize());
       StorageIndex new_end = convert_index(m_data.allocatedSize());
-      for(Index j=outer+1; j<=m_outerSize; ++j)
-        if(m_outerIndex[j]==data_end)
-          m_outerIndex[j] = new_end;
+      for(Index k=outer+1; k<=m_outerSize; ++k)
+        if(m_outerIndex[k]==data_end)
+          m_outerIndex[k] = new_end;
     }
     return m_data.value(p);
   }
@@ -1143,9 +1156,9 @@ typename SparseMatrix<_Scalar,_Options,_Index>::Scalar& SparseMatrix<_Scalar,_Op
       //     so that the entire free-space is allocated to the current inner-vector.
       eigen_internal_assert(data_end < m_data.allocatedSize());
       StorageIndex new_end = convert_index(m_data.allocatedSize());
-      for(Index j=outer+1; j<=m_outerSize; ++j)
-        if(m_outerIndex[j]==data_end)
-          m_outerIndex[j] = new_end;
+      for(Index k=outer+1; k<=m_outerSize; ++k)
+        if(m_outerIndex[k]==data_end)
+          m_outerIndex[k] = new_end;
     }
     
     // and insert it at the right position (sorted insertion)

@@ -11,8 +11,17 @@
 #ifndef EIGEN_SPARSE_TRIANGULARVIEW_H
 #define EIGEN_SPARSE_TRIANGULARVIEW_H
 
-namespace Eigen { 
+namespace Eigen {
 
+/** \ingroup SparseCore_Module
+  *
+  * \brief Base class for a triangular part in a \b sparse matrix
+  *
+  * This class is an abstract base class of class TriangularView, and objects of type TriangularViewImpl cannot be instantiated.
+  * It extends class TriangularView with additional methods which are available for sparse expressions only.
+  *
+  * \sa class TriangularView, SparseMatrixBase::triangularView()
+  */
 template<typename MatrixType, unsigned int Mode> class TriangularViewImpl<MatrixType,Mode,Sparse>
   : public SparseMatrixBase<TriangularView<MatrixType,Mode> >
 {
