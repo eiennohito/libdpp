@@ -1,3 +1,6 @@
+#ifndef LIBDPP_COMMON_HPP
+#define LIBDPP_COMMON_HPP
+
 #include "kernels.h"
 
 // use Eigen's dense matrices
@@ -43,10 +46,17 @@ struct eigen_typedefs {
 template <typename Derived>
 class base_object {
 protected:
-  Derived &derived() { return static_cast<Derived &>(*this); }
-  const Derived &derived() const { return static_cast<const Derived &>(*this); }
+  inline Derived &derived() { return static_cast<Derived &>(*this); }
+  inline const Derived &derived() const { return static_cast<const Derived &>(*this); }
 };
 
+
+template <typename Fp>
+class trace_support {
+public:
+  virtual void trace(const Fp* const data, i64 size, TraceType traceType) = 0;
+  virtual ~trace_support(){}
+};
 
 template <typename Derived, typename Fp>
 class base_kernel : public base_object<Derived> {
@@ -283,3 +293,5 @@ inline std::vector<i64> greedy_basis_indices(i64 k, i64 n) {
 }
 
 }
+
+#endif //LIBDPP_COMMON_HPP

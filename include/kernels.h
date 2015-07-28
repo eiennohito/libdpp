@@ -4,33 +4,11 @@
 #include <vector>
 #include <memory>
 
-typedef long long i64;
+#include "fwddefs.hpp"
 
 //#include <boost/preprocessor.hpp>
 
 namespace dpp {
-
-template <typename Fp>
-class l_kernel_impl;
-template <typename Fp>
-class sampling_subspace_impl;
-template <typename Fp>
-class sampling_subspace;
-template <typename Fp>
-class c_kernel_impl;
-template <typename Fp>
-class dual_sampling_subspace;
-template <typename Fp>
-class c_kernel;
-template <typename Fp>
-class c_kernel_builder_impl;
-template <typename Fp>
-class c_sampler_impl;
-
-enum class TraceType {
-  SelectionVector,
-  ProbabilityDistribution
-};
 
 template <typename Fp>
 class tracer {
