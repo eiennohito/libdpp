@@ -20,7 +20,7 @@ void vector_ref_result_holder::append(i64 item) {
 }
 
 i64 &result_holder::operator[](i64 idx) {
-  DPP_ASSERT(idx > 0);
+  DPP_ASSERT(idx >= 0);
   DPP_ASSERT(idx < size());
 
   return *(data() + idx);
@@ -45,4 +45,10 @@ void memory_area_result_holder::append(i64 item) {
   used_ += 1;
 }
 
+const i64 &result_holder::operator[](i64 idx) const {
+  DPP_ASSERT(idx >= 0);
+  DPP_ASSERT(idx < size());
+
+  return *(data() + idx);
+}
 }

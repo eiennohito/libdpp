@@ -2,165 +2,10 @@
 #include <limits>
 #include <cmath>
 
+#include "l_kernel.hpp"
+#include "l_selection.hpp"
+
 namespace dpp {
-
-template <typename Fp>
-class l_kernel_impl : public base_kernel<l_kernel_impl<Fp>, Fp> {
-
-  typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
-  // typedef typename eigen_typedefs<Fp>::vector vector_t;
-
-  std::unique_ptr<kernel_t> kernel_;
-
-  kernel_t marginal_kernel_;
-
-public:
-  kernel_t &kernel() { return *kernel_; }
-  const kernel_t &kernel() const { return *kernel_; }
-
-  void init_from_kernel(Fp *data, int rows, int cols) {
-    typedef typename eigen_typedefs<Fp>::matrix_rowmajor outer_t;
-    Eigen::Map<outer_t> outer(data, rows, cols);
-    kernel_ = make_unique<kernel_t>(rows, cols);
-    *kernel_ = outer;
-  }
-
-  sampling_subspace_impl<Fp> *sampler() const;
-
-  sampling_subspace_impl<Fp> *sampler(i64 k);
-
-  sampling_subspace_impl<Fp> *sampler_greedy(i64 k);
-
-
-  virtual void decompose() override {
-    base_kernel<l_kernel_impl<Fp>, Fp>::decompose();
-
-    marginal_kernel_ =
-        (
-            this->eigenvectors() *
-            (this->eigenvalues().array() / (this->eigenvalues().array() + Fp{1.0})).matrix().asDiagonal()
-
-        ) * this->eigenvectors().transpose();
-#ifdef DPP_TRACE_KERNELS
-    std::cout << "l kernel:\n" << kernel() << "\n";
-    std::cout << "marginal kernel:\n" << marginal_kernel_ << "\n";
-#endif //DPP_TRACE_KERNELS
-
-  }
-
-  Fp selection_log_probability(const std::vector<i64> &indices) const {
-
-    //1. create a reduction kernel
-    kernel_t reduced(indices.size(), indices.size());
-
-    auto sz = indices.size();
-
-    for (i64 i = 0; i < sz; ++i) {
-      for (i64 j = 0; j < sz; ++j) {
-        reduced(i, j) = marginal_kernel_(indices[i], indices[j]);
-      }
-    }
-
-#ifdef DPP_TRACE_KERNELS
-    std::cout << "marginal selection kernel (L->K):\n" << reduced << "\n";
-#endif //DPP_TRACE_KERNELS
-
-    Eigen::LDLT<kernel_t> ldlt(reduced);
-
-    //2. return result
-    return ldlt.vectorD().array().log().sum();
-  }
-
-  template<typename Tracer>
-  void greedy_selection(std::vector<i64>& indices, i64 maxSel, Tracer tracer) const {
-    typedef typename eigen_typedefs<Fp>::vector vector_t;
-
-    if (maxSel < 1) {
-      return;
-    }
-
-    auto size = kernel_->rows();
-
-    vector_t last(size);
-
-    Fp maxProb = -100;
-    i64 selection;
-
-    for (i64 i = 0; i < size; ++i) {
-      auto val = marginal_kernel_(i, i);
-      last(i) = val;
-      if (val > maxProb) {
-        maxProb = val;
-        selection = i;
-      }
-    }
-
-    tracer(last);
-    
-    last(selection) = 0;
-    indices.push_back(selection);
-
-    if (maxSel == 1) {
-      return;
-    }
-
-    kernel_t cache;
-    vector_t trial, solution;
-    Fp last_item;
-
-    Eigen::LDLT<kernel_t> decomposition;
-
-    for (i64 selectionSize = 1; selectionSize < maxSel; ++selectionSize) {
-
-      cache.resize(selectionSize, selectionSize);
-
-      for (i64 i = 0; i < selectionSize; ++i) {
-        for (i64 j = 0; j <= i; ++j) {
-          cache(i, j) = marginal_kernel_(indices[i], indices[j]);
-        }
-      }
-
-      decomposition.compute(cache);
-
-      auto Adet = decomposition.vectorD().prod();
-
-      trial.resize(selectionSize);
-
-      maxProb = -50000;
-
-      for (i64 idx = 0; idx < size; ++idx) {
-        if (std::find(indices.cbegin(), indices.cend(), idx) != indices.cend()) {
-          continue;
-        }
-
-        last_item = marginal_kernel_(idx, idx);
-
-        for (i64 i = 0; i < selectionSize; ++i) {
-          trial(i) = marginal_kernel_(idx, indices[i]);
-        }
-
-        solution = decomposition.solve(trial);
-
-        //cheating on determinants
-        auto marginal = Adet * (last_item - trial.dot(solution));
-
-        auto prob = marginal - Adet;
-        last(idx) = prob;
-        
-        if (prob > maxProb) {
-          maxProb = prob;
-          selection = idx;
-        }
-      }
-
-      tracer(last);
-      last(selection) = 0;
-      indices.push_back(selection);
-    }
-  }
-
-
-};
 
 template <typename Fp>
 class sampling_subspace_impl
@@ -266,14 +111,6 @@ public:
       this->gram_shmidt_orhonormailze();
     }
   }
-
-  void greedy_probability_selection(std::vector<i64>& out, i64 max) {
-    auto tracer = [this](const typename eigen_typedefs<Fp>::vector &data) {
-      this->trace(data.data(), data.size(), TraceType::ProbabilityDistribution);
-    };
-    kernel_->greedy_selection(out, max, tracer);
-
-  }
 };
 
 template <typename Fp>
@@ -312,19 +149,19 @@ l_kernel<Fp>::~l_kernel<Fp>() {}
 template <typename Fp>
 sampling_subspace<Fp> *l_kernel<Fp>::sampler() {
   auto impl = impl_->sampler();
-  return new sampling_subspace<Fp>{make_unique(impl)};
+  return new sampling_subspace<Fp>{wrap(impl)};
 }
 
 template <typename Fp>
 sampling_subspace<Fp> *l_kernel<Fp>::sampler(i64 k) {
   auto impl = impl_->sampler(k);
-  return new sampling_subspace<Fp>{make_unique(impl)};
+  return new sampling_subspace<Fp>{wrap(impl)};
 }
 
 template <typename Fp>
 sampling_subspace<Fp> *l_kernel<Fp>::sampler_greedy(i64 k) {
   auto impl = impl_->sampler_greedy(k);
-  return new sampling_subspace<Fp>{make_unique(impl)};
+  return new sampling_subspace<Fp>{wrap(impl)};
 }
 
 template <typename Fp>
@@ -358,12 +195,6 @@ i64 sampling_subspace<Fp>::greedy(std::vector<i64> &out) {
 }
 
 template <typename Fp>
-i64 sampling_subspace<Fp>::greedy_prob_selection(std::vector<i64> &out, i64 maxItems) {
-  impl_->greedy_probability_selection(out, maxItems);
-  return 0;
-}
-
-template <typename Fp>
 Fp l_kernel<Fp>::selection_log_probability(std::vector<i64> &indices) {
   return this->impl_->selection_log_probability(indices);
 }
@@ -371,14 +202,32 @@ Fp l_kernel<Fp>::selection_log_probability(std::vector<i64> &indices) {
 template <typename Fp>
 sampling_subspace<Fp>::~sampling_subspace<Fp>() {}
 
+template <typename Fp>
+void l_kernel_impl<Fp>::decompose() {
+  base_kernel<l_kernel_impl<Fp>, Fp>::decompose();
+
+  marginal_kernel_ =
+      (
+          this->eigenvectors() *
+          (this->eigenvalues().array() / (this->eigenvalues().array() + Fp{1.0})).matrix().asDiagonal()
+
+      ) * this->eigenvectors().transpose();
+#ifdef DPP_TRACE_KERNELS
+  std::cout << "l kernel:\n" << kernel() << "\n";
+    std::cout << "marginal kernel:\n" << marginal_kernel_ << "\n";
+#endif //DPP_TRACE_KERNELS
+
+}
 
 //explicit template instantiation
 
-template class l_kernel<float>;
-template class l_kernel<double>;
+//template class l_kernel<float>;
+//template class l_kernel<double>;
+LIBDPP_SPECIALIZE_CLASS_FLOATS(l_kernel);
 
-template class sampling_subspace<float>;
-template class sampling_subspace<double>;
+LIBDPP_SPECIALIZE_CLASS_FLOATS(sampling_subspace);
+//template class sampling_subspace<float>;
+//template class sampling_subspace<double>;
 
 }
 

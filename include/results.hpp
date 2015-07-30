@@ -19,6 +19,7 @@ public:
   virtual void append(i64 item) = 0;
 
   i64 & operator[](i64 idx);
+  const i64 & operator[](i64 idx) const;
 
   bool contains(i64 idx) const;
 
@@ -32,9 +33,9 @@ private:
 public:
   vector_ref_result_holder(std::vector<i64> &ref) : ref_(ref) { }
 
-  virtual i64 *data() const;
-  virtual i64 size() const;
-  virtual void append(i64 item);
+  virtual i64 *data() const override;
+  virtual i64 size() const override;
+  virtual void append(i64 item) override;
 };
 
 class memory_area_result_holder: public result_holder {
@@ -45,10 +46,14 @@ class memory_area_result_holder: public result_holder {
 public:
   memory_area_result_holder(i64 *memory_, i64 max) : memory_(memory_), max_(max), used_(0) { }
 
-  virtual i64 *data() const;
-  virtual i64 size() const;
-  virtual void append(i64 item);
+  virtual i64 *data() const override;
+  virtual i64 size() const override;
+  virtual void append(i64 item) override;
 };
+
+inline vector_ref_result_holder wrap_result(std::vector<i64>& ref) {
+  return vector_ref_result_holder{ref};
+}
 
 }
 

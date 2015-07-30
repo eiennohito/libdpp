@@ -5,6 +5,8 @@
 #include <memory>
 
 #include "fwddefs.hpp"
+#include "results.hpp"
+#include "l_selection.hpp"
 
 //#include <boost/preprocessor.hpp>
 
@@ -33,6 +35,8 @@ class l_kernel {
   sampling_subspace<Fp> *sampler(i64 k);
   sampling_subspace<Fp> *sampler_greedy(i64 k);
 
+  std::unique_ptr<l_selector<Fp>> selector();
+
   Fp selection_log_probability(std::vector<i64> &indices);
 
   ~l_kernel();
@@ -50,8 +54,6 @@ class sampling_subspace {
   std::vector<i64> sample();
   i64 sample(std::vector<i64>& out);
   i64 greedy(std::vector<i64>& out);
-
-  i64 greedy_prob_selection(std::vector<i64>& out, i64 maxItems);
 
   sampling_subspace(sampling_subspace &&o);
 

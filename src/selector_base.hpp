@@ -12,36 +12,41 @@
 namespace dpp {
 
 /**
- * Assumes presense of
+ * Assumes presense of function trace(...) as if child was implementing trace_support interface
  */
 template <typename Derived, typename Fp>
-class selector_impl_base: public base_object<Derived>, public trace_support<Fp> {
+class selector_impl_base:
+    public base_object<Derived> {
+
 
   typedef Fp fp_t;
+protected:
   typedef typename eigen_typedefs<fp_t>::matrix_colmajor matrix_cache_t;
   typedef typename eigen_typedefs<fp_t>::vector vector_t;
-protected:
-  virtual void fill_cache(const std::vector<i64>& indices, matrix_cache_t& mat) = 0;
+
+public:
+  virtual void fill_cache(const result_holder& indices, matrix_cache_t& mat) = 0;
   virtual Fp diagonal_item(i64 pos) = 0;
   virtual Fp fill_vector(i64 pos, const result_holder& idxs, vector_t& out) = 0;
   virtual i64 num_items() const = 0;
+  virtual void precompute(const result_holder& idxs) {}
 
 private:
   void trace_vector(const vector_t& vec) {
-    trace(vec.data(), vec.size(), TraceType::ProbabilityDistribution);
+    this->derived().trace(vec.data(), vec.size(), TraceType::ProbabilityDistribution);
   }
 
 public:
   void greedy_selection(result_holder& indices, i64 maxSel) {
     typedef typename eigen_typedefs<Fp>::vector vector_t;
 
-    DPP_ASSERT(maxSel < derived().num_items());
+    DPP_ASSERT(maxSel < this->derived().num_items());
 
     if (maxSel < 1) {
       return;
     }
 
-    auto size = derived().num_items();
+    auto size = this->derived().num_items();
 
     vector_t last(size);
 
@@ -49,7 +54,7 @@ public:
     i64 selection = 0;
 
     for (i64 i = 0; i < size; ++i) {
-      auto val = derived().diagonal_item(i);
+      auto val = this->derived().diagonal_item(i);
       last(i) = val;
       if (val > maxProb) {
         maxProb = val;
@@ -76,7 +81,7 @@ public:
 
       cache.resize(selectionSize, selectionSize);
 
-      derived().fill_cache(indices, cache);
+      this->derived().fill_cache(indices, cache);
 
       decomposition.compute(cache);
 
@@ -89,7 +94,7 @@ public:
           continue;
         }
 
-        last_item = derived().fill_vector(idx, indices, trial);
+        last_item = this->derived().fill_vector(idx, indices, trial);
 
         solution = decomposition.solve(trial);
 
@@ -107,6 +112,7 @@ public:
       trace_vector(last);
       last(selection) = 0;
       indices.append(selection);
+      this->derived().precompute(indices);
     }
   }
 };

@@ -4,6 +4,7 @@ set( sources
   c_kernel.cpp
   l_kernel.cpp
   results.cpp
+  l_selection.cpp
 )
 
 set ( our_includes
@@ -12,8 +13,9 @@ set ( our_includes
   common.hpp
   selector_base.hpp
   ../include/results.hpp
+  ../include/fwddefs.hpp
 )
 
 include_directories(${libdpp_INCLUDES})
 
-add_library(dpp ${sources} ${our_includes} ../include/fwddefs.hpp)
+add_library(dpp ${sources} ${our_includes} l_kernel.hpp ../include/l_selection.hpp)

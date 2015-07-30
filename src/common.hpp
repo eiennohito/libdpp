@@ -33,6 +33,11 @@ std::unique_ptr<R> make_unique(R *ptr) {
   return std::unique_ptr<R>(ptr);
 }
 
+template <typename R>
+std::unique_ptr<R> wrap(R* ptr) {
+  return std::unique_ptr<R>(ptr);
+}
+
 template <typename Fp>
 struct eigen_typedefs {
   typedef Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
@@ -56,6 +61,23 @@ class trace_support {
 public:
   virtual void trace(const Fp* const data, i64 size, TraceType traceType) = 0;
   virtual ~trace_support(){}
+};
+
+template <typename Fp>
+class tracer_ref_holder: public trace_support<Fp> {
+protected:
+  tracer<Fp>* tracer_ = nullptr;
+
+public:
+  void setTracer(tracer<Fp> *tracer) {
+    this->tracer_ = tracer;
+  }
+
+  void trace(const Fp* const data, i64 size, TraceType traceType) override {
+    if (tracer_) {
+      tracer_->trace(data, size, traceType);
+    }
+  }
 };
 
 template <typename Derived, typename Fp>
@@ -270,7 +292,7 @@ protected:
     return result;
   }
 
-private:
+protected:
   tracer<Fp> *tracer_ = 0;
 
 protected:
@@ -293,5 +315,9 @@ inline std::vector<i64> greedy_basis_indices(i64 k, i64 n) {
 }
 
 }
+
+#define LIBDPP_SPECIALIZE_CLASS_FLOATS(name) \
+  template class name <double>; \
+  template class name <float>;
 
 #endif //LIBDPP_COMMON_HPP
