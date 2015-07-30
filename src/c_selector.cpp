@@ -26,7 +26,7 @@ class c_selector_impl :
 
 private:
   void computeDiagonal() {
-    ensureRows(1);
+    ensureCols(1);
 
     auto sz = num_items();
 
@@ -36,27 +36,31 @@ private:
     }
   }
 
-  void ensureRows(i64 rows) {
-    if (cache_.rows() < rows) {
-      cache_.conservativeResize(Eigen::NoChange, rows);
+  void ensureCols(i64 items) {
+    if (cache_.rows() < items) {
+      items = static_cast<i64>(items * 4 / 3 + 3);
+      cache_.conservativeResize(num_items(), items);
     }
   }
 
 
 public:
-  c_selector_impl(const matrix_t &mod_matrix): mod_matrix_(mod_matrix) { }
+  c_selector_impl(const matrix_t &mod_matrix): mod_matrix_(mod_matrix) {
+    ensureCols(2);
+    computeDiagonal();
+  }
 
   virtual void reset() override {
     computed_ = 0;
   }
 
   virtual void fill_cache(const result_holder &indices, matrix_cache_t &mat) {
-    i64 sz = num_items();
+    i64 sz = indices.size();
     
     for (i64 i = 0; i < sz; ++i) {
-      mat(i, i) = cache_(0, indices[i]);
+      mat(i, i) = cache_(indices[i], 0);
       for (i64 j = i; j < sz; ++j) {
-        auto val = cache_(i + 1, indices[j]);
+        auto val = cache_(indices[j], i + 1);
         mat(i, j) = val;
         mat(j, i) = val;
       }
@@ -65,7 +69,7 @@ public:
 
 
   virtual void hintSize(i64 maxSelection) override {
-    ensureRows(maxSelection + 1);
+    ensureCols(maxSelection + 1);
   }
 
   virtual Fp diagonal_item(i64 pos) {
@@ -84,7 +88,7 @@ public:
 
 
   virtual void precompute(const result_holder &idxs) override {
-    ensureRows(idxs.size() + 1);
+    ensureCols(idxs.size() + 1);
     auto items = num_items();
     auto offdiag = idxs.size();
 

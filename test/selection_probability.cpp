@@ -69,5 +69,45 @@ TEST_F(SelectionProbabilityTest, ProbEqual) {
   auto c_prob = ckern->selection_log_probability(selection);
   auto l_prob = lkern->selection_log_probability(selection);
   EXPECT_FLOAT_EQ(c_prob, l_prob);
+}
 
+TEST_F(SelectionProbabilityTest, SameSelection) {
+  const i64 dim = 6;
+  double data[] =      {1, 0, 0, 0, 0.1, 0,
+                        0, 1, 1, 0, 0, 0,
+                        0, 0, 1, 0, 0, 0.2,
+                        1, 1, 0, 0.1, 0, 0,
+                        1, 1, 1, 0, 0, 0.1,
+                        1, 0, 0.1, 0, 1, 0,
+                        0.1, 1, 1, 0, 0.1, 0,
+                        0.1, 1, 0.1, 0, 0, 0,
+                        1, 1, 1, 1, 1, 1,
+                        1, 0, 0, 0, 1, 1,
+                        0, 0.1, 0, 1, 1, 1};
+
+  Eigen::MatrixXd m = Eigen::Map<Eigen::MatrixXd>(data, 11, 6);
+
+  Eigen::MatrixXd m2 = m * m.adjoint();
+
+  EXPECT_EQ(m2.rows(), 11);
+  EXPECT_EQ(m2.cols(), 11);
+
+  auto lkern = wrap_ptr(dpp::l_kernel<double>::from_array(m2.data(), 11));
+  auto ckern = wrap_ptr(dpp::c_kernel<double>::from_colwize_array(m.data(), 6, 11));
+
+  auto s1 = lkern->selector();
+  auto s2 = ckern->selector();
+
+  std::vector<i64> v1;
+  std::vector<i64> v2;
+  auto wr1 = wrap_result(v1);
+  auto wr2 = wrap_result(v2);
+
+  s1->greedy_max_subset(4, wr1);
+  s2->greedy_max_subset(4, wr2);
+
+  EXPECT_EQ(v1[0], v2[0]);
+  EXPECT_EQ(v1[1], v2[1]);
+  EXPECT_EQ(v1[2], v2[2]);
+  EXPECT_EQ(v1[3], v2[3]);
 }
