@@ -1,91 +1,58 @@
-#include "common.hpp"
+#include "c_kernel.hpp"
 
 namespace dpp {
 
+template <typename Fp>
+Fp c_kernel_impl<Fp>::selection_log_probability(const std::vector<i64> &indices) const {
 
+  //1. create a reduction kernel
+  kernel_t reduced(indices.size(), indices.size());
+  reduced.setZero();
+
+  auto sz = indices.size();
+  auto ndim = this->matrix().cols();
+
+  kernel_t selected_items;
+  selected_items.resize(sz, ndim);
+
+  for (i64 i = 0; i < sz; ++i) {
+    selected_items.row(i) = this->matrix().row(indices[i]);
+  }
+
+  kernel_t mods = this->eigenvectors();
+
+  for (i64 i = 0; i < mods.rows(); ++i) {
+    mods.col(i).array() /= std::sqrt(1 + this->eigenvalues()(i));
+  }
+
+  selected_items *= mods;
+
+  reduced = selected_items * selected_items.adjoint();
+
+  Eigen::LDLT<kernel_t> distr(reduced);
+
+  //2. return result
+  return distr.vectorD().array().log().sum();
+}
 
 template <typename Fp>
-class c_kernel_impl : public base_kernel<c_kernel_impl<Fp>, Fp> {
-public:
-  typedef typename Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic,
-      Eigen::RowMajor> matrix_t;
-  typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
-
-private:
-  // dual DPP-kernel, has dimensions of D \times D
-  kernel_t kernel_;
-
-  // dense matrix of items, each row contains
-  // vector similarity features (norm == 1) multiplied
-  // by scalar quality features, so the norm == quality.
-  // Dimensions of matrix are N \times D
-  matrix_t matrix_;
-
-public:
-  c_kernel_impl(matrix_t &&matrix) : matrix_{std::move(matrix)} {
-    kernel_ = matrix_.adjoint() * matrix_;
+typename c_kernel_impl<Fp>::matrix_t &c_kernel_impl<Fp>::kernalized_matrix() {
+  if (kernalized_.rows() == matrix_.rows() && kernalized_.cols() == matrix_.cols()) {
+    return kernalized_;
   }
 
-  kernel_t &kernel() { return kernel_; }
-  const kernel_t &kernel() const { return kernel_; }
+  kernalized_.noalias() = matrix_;
 
-  matrix_t &matrix() { return matrix_; }
-  const matrix_t &matrix() const { return matrix_; }
+  kernel_t mods = this->eigenvectors();
 
-  Fp selection_log_probability(const std::vector<i64> &indices) const {
-
-    //1. create a reduction kernel
-    kernel_t reduced(indices.size(), indices.size());
-    reduced.setZero();
-
-    auto sz = indices.size();
-    auto ndim = this->matrix().cols();
-
-    kernel_t selected_items;
-    selected_items.resize(sz, ndim);
-
-    for (i64 i = 0; i < sz; ++i) {
-      selected_items.row(i) = this->matrix().row(indices[i]);
-    }
-
-    kernel_t mods = this->eigenvectors();
-
-    for (i64 i = 0; i < mods.rows(); ++i) {
-      mods.col(i).array() /= std::sqrt(1 + this->eigenvalues()(i));
-    }
-
-    /*
-
-    typename eigen_typedefs<Fp>::vector vec(sz);
-
-    for (i64 n = 0; n < ndim; ++n) {
-
-      auto &&evec = this->eigenvector(n);
-      vec = selected_items * evec.adjoint();
-      auto mplier = 1 / (this->eigenvalues()(n) + 1);
-
-      for (i64 i = 0; i < sz; ++i) {
-        auto step_mplier = mplier * vec(i);
-        reduced(i, i) += step_mplier * vec(i);
-        for (i64 j = i + 1; j < sz; ++j) {
-          auto val = step_mplier * vec(j);
-          reduced(i, j) += val;
-          reduced(j, i) += val;
-        }
-      }
-    } */
-
-    selected_items *= mods;
-
-    reduced = selected_items * selected_items.adjoint();
-
-    Eigen::LDLT<kernel_t> distr(reduced);
-
-    //2. return result
-    return distr.vectorD().array().log().sum();
+  for (i64 i = 0; i < mods.rows(); ++i) {
+    mods.col(i).array() /= std::sqrt(1 + this->eigenvalues()(i));
   }
 
-};
+  kernalized_ *= mods;
+
+  return kernalized_;
+}
 
 template <typename Fp>
 class c_sampler_impl : public base_sampler_impl<c_sampler_impl<Fp>, Fp> {
@@ -323,14 +290,14 @@ template <typename Fp>
 dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler() {
   auto &&items = impl_->random_subspace_indices();
   auto impl = new c_sampler_impl<Fp>(impl_.get(), std::move(items));
-  return new dual_sampling_subspace<Fp>(make_unique(impl));
+  return new dual_sampling_subspace<Fp>(wrap(impl));
 }
 
 template <typename Fp>
 dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler(i64 k) {
   auto &&items = impl_->k_random_subspace_indices(k);
   auto impl = new c_sampler_impl<Fp>(impl_.get(), std::move(items));
-  return new dual_sampling_subspace<Fp>(make_unique(impl));
+  return new dual_sampling_subspace<Fp>(wrap(impl));
 }
 
 template <typename Fp>
@@ -338,7 +305,7 @@ dual_sampling_subspace<Fp> *c_kernel<Fp>::sampler_greedy(i64 k) {
   auto impl = new c_sampler_impl<Fp>(impl_.get(),
                                      greedy_basis_indices(k,
                                                           impl_->kernel().rows()));
-  return new dual_sampling_subspace<Fp>(make_unique(impl));
+  return new dual_sampling_subspace<Fp>(wrap(impl));
 }
 
 template <typename Fp>
@@ -391,14 +358,9 @@ Fp c_kernel<Fp>::selection_log_probability(std::vector<i64> &indices) {
 
 //explicit instantiations
 
-template class c_kernel_builder<float>;
-template class c_kernel_builder<double>;
-
-template class c_kernel<float>;
-template class c_kernel<double>;
-
-template class dual_sampling_subspace<float>;
-template class dual_sampling_subspace<double>;
-
+LIBDPP_SPECIALIZE_CLASS_FLOATS(c_kernel_impl)
+LIBDPP_SPECIALIZE_CLASS_FLOATS(c_kernel_builder)
+LIBDPP_SPECIALIZE_CLASS_FLOATS(c_kernel)
+LIBDPP_SPECIALIZE_CLASS_FLOATS(dual_sampling_subspace)
 
 }

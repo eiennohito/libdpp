@@ -29,11 +29,6 @@ std::unique_ptr<R> make_unique(T &&... vals) {
 }
 
 template <typename R>
-std::unique_ptr<R> make_unique(R *ptr) {
-  return std::unique_ptr<R>(ptr);
-}
-
-template <typename R>
 std::unique_ptr<R> wrap(R* ptr) {
   return std::unique_ptr<R>(ptr);
 }

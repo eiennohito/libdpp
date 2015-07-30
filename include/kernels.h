@@ -7,6 +7,7 @@
 #include "fwddefs.hpp"
 #include "results.hpp"
 #include "l_selection.hpp"
+#include "c_selector.hpp"
 
 //#include <boost/preprocessor.hpp>
 
@@ -84,6 +85,8 @@ class c_kernel {
   dual_sampling_subspace<Fp> *sampler();
   dual_sampling_subspace<Fp> *sampler(i64 k);
   dual_sampling_subspace<Fp> *sampler_greedy(i64 k);
+
+  std::unique_ptr<c_selector<Fp>> selector();
 
   Fp selection_log_probability(std::vector<i64> &indices);
 

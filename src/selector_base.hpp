@@ -18,18 +18,17 @@ template <typename Derived, typename Fp>
 class selector_impl_base:
     public base_object<Derived> {
 
-
-  typedef Fp fp_t;
-protected:
-  typedef typename eigen_typedefs<fp_t>::matrix_colmajor matrix_cache_t;
-  typedef typename eigen_typedefs<fp_t>::vector vector_t;
-
 public:
+  typedef typename eigen_typedefs<Fp>::matrix_colmajor matrix_cache_t;
+  typedef typename eigen_typedefs<Fp>::vector vector_t;
+
   virtual void fill_cache(const result_holder& indices, matrix_cache_t& mat) = 0;
   virtual Fp diagonal_item(i64 pos) = 0;
   virtual Fp fill_vector(i64 pos, const result_holder& idxs, vector_t& out) = 0;
   virtual i64 num_items() const = 0;
   virtual void precompute(const result_holder& idxs) {}
+  virtual void hintSize(i64 maxSelection) {}
+  virtual void reset() {}
 
 private:
   void trace_vector(const vector_t& vec) {
@@ -42,6 +41,9 @@ public:
 
     DPP_ASSERT(maxSel < this->derived().num_items());
 
+    this->derived().reset();
+    this->derived().hintSize(maxSel);
+
     if (maxSel < 1) {
       return;
     }
@@ -50,7 +52,7 @@ public:
 
     vector_t last(size);
 
-    auto maxProb = std::numeric_limits<fp_t>::lowest();
+    auto maxProb = std::numeric_limits<Fp>::lowest();
     i64 selection = 0;
 
     for (i64 i = 0; i < size; ++i) {
@@ -73,7 +75,7 @@ public:
 
     matrix_cache_t cache;
     vector_t trial, solution;
-    fp_t last_item;
+    Fp last_item;
 
     Eigen::LDLT<matrix_cache_t> decomposition;
 
@@ -87,7 +89,7 @@ public:
 
       trial.resize(selectionSize);
 
-      maxProb = std::numeric_limits<fp_t>::lowest();
+      maxProb = std::numeric_limits<Fp>::lowest();
 
       for (i64 idx = 0; idx < size; ++idx) {
         if (indices.contains(idx)) {
