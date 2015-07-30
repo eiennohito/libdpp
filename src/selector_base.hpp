@@ -80,11 +80,9 @@ public:
 
       decomposition.compute(cache);
 
-      auto Adet = decomposition.vectorD().prod();
-
       trial.resize(selectionSize);
 
-      maxProb = -50000;
+      maxProb = std::numeric_limits<fp_t>::lowest();
 
       for (i64 idx = 0; idx < size; ++idx) {
         if (indices.contains(idx)) {
@@ -96,9 +94,8 @@ public:
         solution = decomposition.solve(trial);
 
         //cheating on determinants
-        auto marginal = Adet * (last_item - trial.dot(solution));
+        auto prob = last_item - trial.dot(solution);
 
-        auto prob = marginal - Adet;
         last(idx) = prob;
 
         if (prob > maxProb) {
