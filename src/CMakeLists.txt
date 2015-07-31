@@ -19,8 +19,10 @@ set ( our_includes
   ../include/fwddefs.hpp
   ../include/l_selection.hpp
   ../include/c_selector.hpp
+  l_selection_impl.hpp
+  c_selection_impl.hpp
 )
 
 include_directories(${libdpp_INCLUDES})
 
-add_library(dpp ${sources} ${our_includes} l_selection_impl.hpp c_selection_impl.hpp)
+add_library(dpp ${sources} ${our_includes})
