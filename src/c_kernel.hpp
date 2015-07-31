@@ -43,6 +43,8 @@ public:
 
   Fp selection_log_probability(const std::vector<i64> &indices) const;
 
+  std::unique_ptr<c_kernel_selector_impl<Fp>> selector();
+
   matrix_t& kernalized_matrix();
 };
 

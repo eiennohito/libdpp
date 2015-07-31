@@ -15,10 +15,12 @@ class l_kernel_selector_impl :
     public selector_impl_base<l_kernel_selector_impl<Fp>, Fp>,
     public tracer_ref_holder<Fp> {
 
-private:
+public:
   typedef typename l_kernel_impl<Fp>::kernel_t kernel_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::matrix_cache_t matrix_cache_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::vector_t vector_t;
+
+private:
   const kernel_t& marginal_;
 
 public:

@@ -11,15 +11,17 @@
 namespace dpp {
 
 template <typename Fp>
-class c_selector_impl :
-    public selector_impl_base<c_selector_impl<Fp>, Fp>,
+class c_kernel_selector_impl :
+    public selector_impl_base<c_kernel_selector_impl<Fp>, Fp>,
     public tracer_ref_holder<Fp> {
 
+public:
   typedef typename c_kernel_impl<Fp>::kernel_t kernel_t;
   typedef typename c_kernel_impl<Fp>::matrix_t matrix_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::matrix_cache_t matrix_cache_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::vector_t vector_t;
 
+private:
   matrix_t cache_;
   const matrix_t& mod_matrix_;
   i64 computed_ = 0;
@@ -45,7 +47,7 @@ private:
 
 
 public:
-  c_selector_impl(const matrix_t &mod_matrix): mod_matrix_(mod_matrix) {
+  c_kernel_selector_impl(const matrix_t &mod_matrix): mod_matrix_(mod_matrix) {
     ensureCols(2);
     computeDiagonal();
   }

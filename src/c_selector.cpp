@@ -22,17 +22,21 @@ c_selector<Fp>::~c_selector() {
 }
 
 template <typename Fp>
+std::unique_ptr<c_kernel_selector_impl<Fp>> c_kernel_impl<Fp>::selector() {
+  auto &&mat = this->kernalized_matrix();
+  return make_unique<c_kernel_selector_impl<Fp>>(mat);
+}
+
+template <typename Fp>
 std::unique_ptr<c_selector<Fp>> c_kernel<Fp>::selector() {
-  auto &&mat = impl_->kernalized_matrix();
-  auto impl = make_unique<c_selector_impl<Fp>>(mat);
-  return make_unique<c_selector<Fp>>(std::move(impl));
+  return make_unique<c_selector<Fp>>(impl_->selector());
 }
 
 template std::unique_ptr<c_selector<double>> c_kernel<double>::selector();
 template std::unique_ptr<c_selector<float>> c_kernel<float>::selector();
 
 LIBDPP_SPECIALIZE_CLASS_FLOATS(c_selector);
-LIBDPP_SPECIALIZE_CLASS_FLOATS(c_selector_impl)
+LIBDPP_SPECIALIZE_CLASS_FLOATS(c_kernel_selector_impl)
 
 }
 

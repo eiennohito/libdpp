@@ -11,14 +11,14 @@
 namespace dpp {
 
 template <typename Fp>
-class c_selector_impl;
+class c_kernel_selector_impl;
 
 template <typename Fp>
 class c_selector {
-  std::unique_ptr<c_selector_impl<Fp>> impl_;
+  std::unique_ptr<c_kernel_selector_impl<Fp>> impl_;
 
 public:
-  c_selector(std::unique_ptr<c_selector_impl<Fp>> &&impl) : impl_(std::move(impl)) {}
+  c_selector(std::unique_ptr<c_kernel_selector_impl<Fp>> &&impl) : impl_(std::move(impl)) {}
 
   void greedy_max_subset(i64 size, result_holder& out);
 
