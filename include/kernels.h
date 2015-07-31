@@ -111,6 +111,16 @@ class dual_sampling_subspace {
   ~dual_sampling_subspace();
 };
 
+template <typename Fp>
+std::unique_ptr<c_kernel<Fp>> make_c_kernel(Fp* data, i64 ndim, i64 items) {
+  return std::unique_ptr<c_kernel<Fp>>(c_kernel<Fp>::from_colwize_array(data, ndim, items));
+}
+
+template <typename Fp>
+std::unique_ptr<l_kernel<Fp>> make_l_kernel(Fp* data, i64 items) {
+  return std::unique_ptr<l_kernel<Fp>>(l_kernel<Fp>::from_array(data, items));
+}
+
 extern template class l_kernel<float>;
 extern template class l_kernel<double>;
 }

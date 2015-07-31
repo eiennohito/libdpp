@@ -63,12 +63,13 @@ int main(int argc, char **argv) {
   Eigen::Map<matrix_t> raw(data_ptr, ndim, nvecs);
   mat = raw.adjoint() * raw;
 
-  auto kernel = wrap(dpp::l_kernel<double>::from_array(mat.data(), nvecs));
-  auto sampler = wrap(kernel->sampler());
+  auto kernel = dpp::make_l_kernel(mat.data(), nvecs);
 
   std::vector<i64> out_vec;
 
-  sampler->greedy_prob_selection(out_vec, nsamples);
+  auto selector = kernel->selector();
+  auto rw = dpp::wrap_result(out_vec);
+  selector->greedy_max_subset(nsamples, rw);
 
   i64 *ptr = reinterpret_cast<i64 *>(out_reg.get_address());
   std::copy(out_vec.begin(), out_vec.end(), ptr + 1);
