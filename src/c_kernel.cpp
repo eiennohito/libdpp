@@ -1,4 +1,5 @@
 #include "c_kernel.hpp"
+#include "c_selection_impl.hpp"
 
 namespace dpp {
 
@@ -52,6 +53,17 @@ typename c_kernel_impl<Fp>::matrix_t &c_kernel_impl<Fp>::kernalized_matrix() {
   kernalized_ *= mods;
 
   return kernalized_;
+}
+
+template <typename Fp>
+std::unique_ptr<c_kernel_selector_impl<Fp>> c_kernel_impl<Fp>::selector() {
+  auto &&mat = this->kernalized_matrix();
+  return make_unique<c_kernel_selector_impl<Fp>>(mat);
+}
+
+template <typename Fp>
+std::unique_ptr<c_selector<Fp>> c_kernel<Fp>::selector() {
+  return make_unique<c_selector<Fp>>(impl_->selector());
 }
 
 template <typename Fp>

@@ -34,12 +34,17 @@ std::unique_ptr<R> wrap(R* ptr) {
 }
 
 template <typename Fp>
-struct eigen_typedefs {
-  typedef Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      matrix_rowmajor;
-  typedef Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>
-      matrix_colmajor;
+using eigen_matrix_colmajor_t =
+  Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
+template <typename Fp>
+using eigen_matrix_rowmajor_t =
+  Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+template <typename Fp>
+struct eigen_typedefs {
+  typedef eigen_matrix_rowmajor_t<Fp> matrix_rowmajor;
+  typedef eigen_matrix_colmajor_t<Fp> matrix_colmajor;
   typedef Eigen::Matrix<Fp, Eigen::Dynamic, 1> vector;
 };
 

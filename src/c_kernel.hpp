@@ -11,11 +11,17 @@
 namespace dpp {
 
 template <typename Fp>
+using c_mat_kernel_t = eigen_matrix_colmajor_t<Fp>;
+
+template <typename Fp>
+using c_mat_matrix_t = eigen_matrix_rowmajor_t<Fp>;
+
+
+template <typename Fp>
 class c_kernel_impl : public base_kernel<c_kernel_impl<Fp>, Fp> {
 public:
-  typedef typename Eigen::Matrix<Fp, Eigen::Dynamic, Eigen::Dynamic,
-      Eigen::RowMajor> matrix_t;
-  typedef typename eigen_typedefs<Fp>::matrix_colmajor kernel_t;
+  typedef c_mat_kernel_t<Fp> kernel_t;
+  typedef c_mat_matrix_t<Fp> matrix_t;
 
 private:
   // dual DPP-kernel, has dimensions of D \times D

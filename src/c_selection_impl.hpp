@@ -7,6 +7,7 @@
 
 #include "common.hpp"
 #include "selector_base.hpp"
+#include "c_kernel.hpp"
 
 namespace dpp {
 
@@ -16,8 +17,8 @@ class c_kernel_selector_impl :
     public tracer_ref_holder<Fp> {
 
 public:
-  typedef typename c_kernel_impl<Fp>::kernel_t kernel_t;
-  typedef typename c_kernel_impl<Fp>::matrix_t matrix_t;
+  typedef c_mat_kernel_t<Fp> kernel_t;
+  typedef c_mat_matrix_t<Fp> matrix_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::matrix_cache_t matrix_cache_t;
   typedef typename selector_impl_base<l_kernel_selector_impl<Fp>, Fp>::vector_t vector_t;
 
