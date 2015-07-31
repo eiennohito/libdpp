@@ -24,4 +24,4 @@ set ( our_includes
 
 include_directories(${libdpp_INCLUDES})
 
-add_library(dpp ${sources} ${our_includes})
+add_library(dpp ${sources} ${our_includes} l_selection_impl.hpp c_selection_impl.hpp)
