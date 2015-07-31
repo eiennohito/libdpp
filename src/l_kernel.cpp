@@ -4,6 +4,7 @@
 
 #include "l_kernel.hpp"
 #include "l_selection.hpp"
+#include "l_selection_impl.hpp"
 
 namespace dpp {
 
@@ -219,15 +220,21 @@ void l_kernel_impl<Fp>::decompose() {
 
 }
 
+template <typename Fp>
+std::unique_ptr<l_kernel_selector_impl<Fp>> l_kernel_impl<Fp>::selector() const {
+  return make_unique<l_kernel_selector_impl<Fp>>(this->marginal_kernel_);
+}
+
+template <typename Fp>
+std::unique_ptr<l_selector<Fp>> l_kernel<Fp>::selector() {
+  return make_unique<l_selector<Fp>>(impl_->selector());
+}
+
 //explicit template instantiation
 
-//template class l_kernel<float>;
-//template class l_kernel<double>;
 LIBDPP_SPECIALIZE_CLASS_FLOATS(l_kernel);
-
+LIBDPP_SPECIALIZE_CLASS_FLOATS(l_kernel_impl);
 LIBDPP_SPECIALIZE_CLASS_FLOATS(sampling_subspace);
-//template class sampling_subspace<float>;
-//template class sampling_subspace<double>;
 
 }
 
