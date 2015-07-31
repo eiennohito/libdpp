@@ -6,7 +6,6 @@ set( sources
   results.cpp
   l_selection.cpp
   c_selector.cpp
-
 )
 
 set ( our_includes
