@@ -25,7 +25,7 @@ public:
   kernel_t &kernel() { return *kernel_; }
   const kernel_t &kernel() const { return *kernel_; }
 
-  void init_from_kernel(Fp *data, int rows, int cols) {
+  void init_from_kernel(Fp *data, i64 rows, i64 cols) {
     typedef typename eigen_typedefs<Fp>::matrix_rowmajor outer_t;
     Eigen::Map<outer_t> outer(data, rows, cols);
     kernel_ = make_unique<kernel_t>(rows, cols);
