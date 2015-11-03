@@ -25,4 +25,5 @@ set ( our_includes
 
 include_directories(${libdpp_INCLUDES})
 
-add_library(dpp ${sources} ${our_includes})
+add_library(dpp_s SHARED ${sources} ${our_includes})
+add_library(dpp STATIC ${sources} ${our_includes})
