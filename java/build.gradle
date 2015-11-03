@@ -4,7 +4,12 @@ apply plugin: 'com.bmuschko.nexus'
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
 
-version = '0.1-SNAPSHOT'
+version = '0.1'
+group = "org.eiennohito"
+
+jar {
+    baseName = "jdpp"
+}
 
 buildscript {
     repositories {
