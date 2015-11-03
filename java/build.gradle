@@ -1,0 +1,31 @@
+apply plugin: 'java'
+apply plugin: 'com.bmuschko.nexus'
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+version = '0.1-SNAPSHOT'
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'com.nativelibs4java:bridj:0.7.0'
+    testCompile 'junit:junit:4.12'
+}
+
+nexus {
+    sign = false
+    repositoryUrl = 'http://10.228.147.22:9500/nexus/content/repositories/releases/'
+    snapshotRepositoryUrl = 'http://10.228.147.22:9500/nexus/content/repositories/snapshots/'
+}
