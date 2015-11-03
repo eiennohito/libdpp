@@ -27,12 +27,16 @@ public class CSelector implements Closeable {
     this.size = size;
   }
 
-  public DoubleBuffer buffer() {
+  /*package*/ DoubleBuffer buffer() {
     return matrix.getDoubleBuffer();
   }
 
-  public LongBuffer sample(long max) {
-    Pointer<?> handle = LibDpp.dpp_create_c_kernel(matrix, ndim, size);
+  /*package*/ LongBuffer sample(long max) {
+    return sample(max, size);
+  }
+
+  /*package*/ LongBuffer sample(long max, long curSize) {
+    Pointer<?> handle = LibDpp.dpp_create_c_kernel(matrix, ndim, curSize);
     LibDpp.dpp_select_from_c(handle, max, sampleResult);
     LibDpp.dpp_delete_c_kernel(handle);
     LongBuffer longBuffer = sampleResult.getLongBuffer();
@@ -55,4 +59,60 @@ public class CSelector implements Closeable {
     Pointer<Long> retvals = Pointer.allocateLongs(items);
     return new CSelector(matrix, retvals, dim, items);
   }
+
+  public VectorFiller filler() { return new FillerImpl(); }
+
+  class FillerImpl implements VectorFiller {
+    int position = 0;
+
+    private void checkCanInsert() {
+      if (position >= size)
+        throw new DppException("can not insert " + position + " element to buffer, have only " + size + " entries");
+    }
+
+    @Override
+    public int fillDouble(double[] data, int start, int length) {
+      checkCanInsert();
+      checkLength(length);
+      long offset = ndim * position * 8;
+      matrix.setDoublesAtOffset(offset, data, start, length);
+      return position++;
+    }
+
+    private void checkLength(int length) {
+      if (length != ndim) {
+        throw new DppException("data size is of invalid size: " + length + ", but was waiting " + ndim);
+      }
+    }
+
+    private double[] buffer = new double[(int)ndim];
+
+    @Override
+    public int fillFloat(float[] data, int start, int length) {
+      checkCanInsert();
+      checkLength(length);
+      return convertAndFill(buffer, data, start, length);
+    }
+
+    private int convertAndFill(double[] buffer, float[] data, int start, int length) {
+      int totLen = length - start;
+      for (int i = 0; i < totLen; ++i) {
+        buffer[i] = data[i + start];
+      }
+      return fillDouble(buffer, 0, totLen);
+    }
+
+    @Override
+    public int sample(long[] result) {
+      LongBuffer lbuf = CSelector.this.sample(result.length, position);
+      lbuf.get(result);
+      return lbuf.position();
+    }
+
+    @Override
+    public void reset() {
+      position = 0;
+    }
+  }
+
 }
