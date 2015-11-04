@@ -2,6 +2,7 @@
 #include "kernels.h"
 
 dpp_c_kernel dpp_create_c_kernel(double *data, i64 ndim, i64 size) {
+  static_assert(sizeof(dpp_c_kernel) == sizeof(dpp::c_kernel<double*>), "size were not equal");
   auto kern = dpp::make_c_kernel(data, ndim, size);
   return kern.release();
 }

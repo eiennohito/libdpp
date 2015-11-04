@@ -40,7 +40,7 @@ private:
   }
 
   void ensureCols(i64 items) {
-    if (cache_.rows() < items) {
+    if (cache_.cols() < items) {
       items = static_cast<i64>(items * 4 / 3 + 3);
       cache_.conservativeResize(num_items(), items);
     }
