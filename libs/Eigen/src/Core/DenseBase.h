@@ -34,24 +34,18 @@ static inline void check_DenseIndex_is_signed() {
   * \tparam Derived is the derived type, e.g., a matrix type or an expression.
   *
   * This class can be extended with the help of the plugin mechanism described on the page
-  * \ref TopicCustomizingEigen by defining the preprocessor symbol \c EIGEN_DENSEBASE_PLUGIN.
+  * \ref TopicCustomizing_Plugins by defining the preprocessor symbol \c EIGEN_DENSEBASE_PLUGIN.
   *
-  * \sa \ref TopicClassHierarchy
+  * \sa \blank \ref TopicClassHierarchy
   */
 template<typename Derived> class DenseBase
 #ifndef EIGEN_PARSED_BY_DOXYGEN
-  : public internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
-                                     typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>
-#else
   : public DenseCoeffsBase<Derived>
+#else
+  : public DenseCoeffsBase<Derived,DirectWriteAccessors>
 #endif // not EIGEN_PARSED_BY_DOXYGEN
 {
   public:
-    using internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
-                typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>::operator*;
-    using internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
-                typename NumTraits<typename internal::traits<Derived>::Scalar>::Real>::operator/;
-
 
     /** Inner iterator type to iterate over the coefficients of a row or column.
       * \sa class InnerIterator
@@ -64,7 +58,7 @@ template<typename Derived> class DenseBase
       * \brief The type used to store indices
       * \details This typedef is relevant for types that store multiple indices such as
       *          PermutationMatrix or Transpositions, otherwise it defaults to Eigen::Index
-      * \sa \ref TopicPreprocessorDirectives, Eigen::Index, SparseMatrixBase.
+      * \sa \blank \ref TopicPreprocessorDirectives, Eigen::Index, SparseMatrixBase.
      */
     typedef typename internal::traits<Derived>::StorageIndex StorageIndex;
 
@@ -76,11 +70,9 @@ template<typename Derived> class DenseBase
       * It is an alias for the Scalar type */
     typedef Scalar value_type;
     
-    typedef typename internal::packet_traits<Scalar>::type PacketScalar;
     typedef typename NumTraits<Scalar>::Real RealScalar;
+    typedef DenseCoeffsBase<Derived> Base;
 
-    typedef internal::special_scalar_op_base<Derived,typename internal::traits<Derived>::Scalar,
-                      typename NumTraits<typename internal::traits<Derived>::Scalar>::Real> Base;
     using Base::derived;
     using Base::const_cast_derived;
     using Base::rows;
@@ -178,6 +170,8 @@ template<typename Derived> class DenseBase
       InnerStrideAtCompileTime = internal::inner_stride_at_compile_time<Derived>::ret,
       OuterStrideAtCompileTime = internal::outer_stride_at_compile_time<Derived>::ret
     };
+    
+    typedef typename internal::find_best_packet<Scalar,SizeAtCompileTime>::type PacketScalar;
 
     enum { IsPlainObjectBase = 0 };
     
@@ -214,10 +208,6 @@ template<typename Derived> class DenseBase
       * of stored coefficients. */
     EIGEN_DEVICE_FUNC
     inline Index nonZeros() const { return size(); }
-    /** \returns true if either the number of rows or the number of columns is equal to 1.
-      * In other words, this function returns
-      * \code rows()==1 || cols()==1 \endcode
-      * \sa rows(), cols(), IsVectorAtCompileTime. */
 
     /** \returns the outer size.
       *
@@ -270,10 +260,10 @@ template<typename Derived> class DenseBase
 #ifndef EIGEN_PARSED_BY_DOXYGEN
     /** \internal Represents a matrix with all coefficients equal to one another*/
     typedef CwiseNullaryOp<internal::scalar_constant_op<Scalar>,PlainObject> ConstantReturnType;
-    /** \internal Represents a vector with linearly spaced coefficients that allows sequential access only. */
-    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,false>,PlainObject> SequentialLinSpacedReturnType;
+    /** \internal \deprecated Represents a vector with linearly spaced coefficients that allows sequential access only. */
+    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,PacketScalar>,PlainObject> SequentialLinSpacedReturnType;
     /** \internal Represents a vector with linearly spaced coefficients that allows random access. */
-    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,true>,PlainObject> RandomAccessLinSpacedReturnType;
+    typedef CwiseNullaryOp<internal::linspaced_op<Scalar,PacketScalar>,PlainObject> RandomAccessLinSpacedReturnType;
     /** \internal the return type of MatrixBase::eigenvalues() */
     typedef Matrix<typename NumTraits<typename internal::traits<Derived>::Scalar>::Real, internal::traits<Derived>::ColsAtCompileTime, 1> EigenvaluesReturnType;
 
@@ -281,13 +271,13 @@ template<typename Derived> class DenseBase
 
     /** Copies \a other into *this. \returns a reference to *this. */
     template<typename OtherDerived>
-    EIGEN_DEVICE_FUNC
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
     Derived& operator=(const DenseBase<OtherDerived>& other);
 
     /** Special case of the template operator=, in order to prevent the compiler
       * from generating a default operator= (issue hit with g++ 4.1)
       */
-    EIGEN_DEVICE_FUNC
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
     Derived& operator=(const DenseBase& other);
 
     template<typename OtherDerived>
@@ -316,7 +306,7 @@ template<typename Derived> class DenseBase
     EIGEN_DEVICE_FUNC
     CommaInitializer<Derived> operator<< (const Scalar& s);
 
-    // TODO flagged is temporarly disabled. It seems useless now
+    /** \deprecated it now returns \c *this */
     template<unsigned int Added,unsigned int Removed>
     EIGEN_DEPRECATED
     const Derived& flagged() const
@@ -394,16 +384,18 @@ template<typename Derived> class DenseBase
     inline bool hasNaN() const;
     inline bool allFinite() const;
 
-    EIGEN_DEVICE_FUNC
-    inline Derived& operator*=(const Scalar& other);
-    EIGEN_DEVICE_FUNC
-    inline Derived& operator/=(const Scalar& other);
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
+    Derived& operator*=(const Scalar& other);
+    EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
+    Derived& operator/=(const Scalar& other);
 
     typedef typename internal::add_const_on_value_type<typename internal::eval<Derived>::type>::type EvalReturnType;
     /** \returns the matrix or vector obtained by evaluating this expression.
       *
       * Notice that in the case of a plain matrix or vector (not an expression) this function just returns
       * a const reference, in order to avoid a useless copy.
+      * 
+      * \warning Be carefull with eval() and the auto C++ keyword, as detailed in this \link TopicPitfalls_auto_keyword page \endlink.
       */
     EIGEN_DEVICE_FUNC
     EIGEN_STRONG_INLINE EvalReturnType eval() const
@@ -566,12 +558,15 @@ template<typename Derived> class DenseBase
     EIGEN_DEVICE_FUNC void reverseInPlace();
 
 #define EIGEN_CURRENT_STORAGE_BASE_CLASS Eigen::DenseBase
+#define EIGEN_DOC_BLOCK_ADDONS_NOT_INNER_PANEL
+#define EIGEN_DOC_BLOCK_ADDONS_INNER_PANEL_IF(COND)
 #   include "../plugins/BlockMethods.h"
 #   ifdef EIGEN_DENSEBASE_PLUGIN
 #     include EIGEN_DENSEBASE_PLUGIN
 #   endif
 #undef EIGEN_CURRENT_STORAGE_BASE_CLASS
-
+#undef EIGEN_DOC_BLOCK_ADDONS_NOT_INNER_PANEL
+#undef EIGEN_DOC_BLOCK_ADDONS_INNER_PANEL_IF
 
     // disable the use of evalTo for dense objects with a nice compilation error
     template<typename Dest>

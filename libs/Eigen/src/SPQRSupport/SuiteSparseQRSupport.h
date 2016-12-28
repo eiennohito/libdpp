@@ -33,27 +33,29 @@ namespace Eigen {
   } // End namespace internal
   
 /**
- * \ingroup SPQRSupport_Module
- * \class SPQR
- * \brief Sparse QR factorization based on SuiteSparseQR library
- * 
- * This class is used to perform a multithreaded and multifrontal rank-revealing QR decomposition 
- * of sparse matrices. The result is then used to solve linear leasts_square systems.
- * Clearly, a QR factorization is returned such that A*P = Q*R where :
- * 
- * P is the column permutation. Use colsPermutation() to get it.
- * 
- * Q is the orthogonal matrix represented as Householder reflectors. 
- * Use matrixQ() to get an expression and matrixQ().transpose() to get the transpose.
- * You can then apply it to a vector.
- * 
- * R is the sparse triangular factor. Use matrixQR() to get it as SparseMatrix.
- * NOTE : The Index type of R is always UF_long. You can get it with SPQR::Index
- * 
- * \tparam _MatrixType The type of the sparse matrix A, must be a column-major SparseMatrix<>
- * NOTE 
- * 
- */
+  * \ingroup SPQRSupport_Module
+  * \class SPQR
+  * \brief Sparse QR factorization based on SuiteSparseQR library
+  *
+  * This class is used to perform a multithreaded and multifrontal rank-revealing QR decomposition
+  * of sparse matrices. The result is then used to solve linear leasts_square systems.
+  * Clearly, a QR factorization is returned such that A*P = Q*R where :
+  *
+  * P is the column permutation. Use colsPermutation() to get it.
+  *
+  * Q is the orthogonal matrix represented as Householder reflectors.
+  * Use matrixQ() to get an expression and matrixQ().transpose() to get the transpose.
+  * You can then apply it to a vector.
+  *
+  * R is the sparse triangular factor. Use matrixQR() to get it as SparseMatrix.
+  * NOTE : The Index type of R is always SuiteSparse_long. You can get it with SPQR::Index
+  *
+  * \tparam _MatrixType The type of the sparse matrix A, must be a column-major SparseMatrix<>
+  *
+  * \implsparsesolverconcept
+  *
+  *
+  */
 template<typename _MatrixType>
 class SPQR : public SparseSolverBase<SPQR<_MatrixType> >
 {
@@ -63,9 +65,13 @@ class SPQR : public SparseSolverBase<SPQR<_MatrixType> >
   public:
     typedef typename _MatrixType::Scalar Scalar;
     typedef typename _MatrixType::RealScalar RealScalar;
-    typedef UF_long StorageIndex ;
+    typedef SuiteSparse_long StorageIndex ;
     typedef SparseMatrix<Scalar, ColMajor, StorageIndex> MatrixType;
     typedef Map<PermutationMatrix<Dynamic, Dynamic, StorageIndex> > PermutationType;
+    enum {
+      ColsAtCompileTime = Dynamic,
+      MaxColsAtCompileTime = Dynamic
+    };
   public:
     SPQR() 
       : m_ordering(SPQR_ORDERING_DEFAULT), m_allow_tol(SPQR_DEFAULT_TOL), m_tolerance (NumTraits<Scalar>::epsilon()), m_useDefaultThreshold(true)
@@ -113,16 +119,16 @@ class SPQR : public SparseSolverBase<SPQR<_MatrixType> >
           max2Norm = RealScalar(1);
         pivotThreshold = 20 * (mat.rows() + mat.cols()) * max2Norm * NumTraits<RealScalar>::epsilon();
       }
-      
       cholmod_sparse A; 
       A = viewAsCholmod(mat);
+      m_rows = matrix.rows();
       Index col = matrix.cols();
       m_rank = SuiteSparseQR<Scalar>(m_ordering, pivotThreshold, col, &A, 
                              &m_cR, &m_E, &m_H, &m_HPinv, &m_HTau, &m_cc);
 
       if (!m_cR)
       {
-        m_info = NumericalIssue; 
+        m_info = NumericalIssue;
         m_isInitialized = false;
         return;
       }
@@ -133,7 +139,7 @@ class SPQR : public SparseSolverBase<SPQR<_MatrixType> >
     /** 
      * Get the number of rows of the input matrix and the Q matrix
      */
-    inline Index rows() const {return m_cR->nrow; }
+    inline Index rows() const {return m_rows; }
     
     /** 
      * Get the number of columns of the input matrix. 
@@ -239,6 +245,7 @@ class SPQR : public SparseSolverBase<SPQR<_MatrixType> >
     mutable Index m_rank; // The rank of the matrix
     mutable cholmod_common m_cc; // Workspace and parameters
     bool m_useDefaultThreshold;     // Use default threshold
+    Index m_rows;
     template<typename ,typename > friend struct SPQR_QProduct;
 };
 

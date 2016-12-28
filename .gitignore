@@ -3,3 +3,4 @@
 .DS_Store
 *.sublime-workspace
 .idea/
+cmake-build-*/

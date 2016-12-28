@@ -34,28 +34,6 @@ void check_static_allocation_size()
   #endif
 }
 
-template<typename T, int Size, typename Packet = typename packet_traits<T>::type,
-         bool Match     =  bool((Size%unpacket_traits<Packet>::size)==0),
-         bool TryHalf   =  bool(int(unpacket_traits<Packet>::size) > 1)
-                        && bool(int(unpacket_traits<Packet>::size) > int(unpacket_traits<typename unpacket_traits<Packet>::half>::size)) >
-struct compute_default_alignment
-{
-  enum { value = 0 };
-};
-
-template<typename T, int Size, typename Packet, bool TryHalf>
-struct compute_default_alignment<T, Size, Packet, true, TryHalf> // Match
-{
-  enum { value = sizeof(T) * unpacket_traits<Packet>::size };
-};
-
-template<typename T, int Size, typename Packet>
-struct compute_default_alignment<T, Size, Packet, false, true> // Try-half
-{
-  // current packet too large, try with an half-packet
-  enum { value = compute_default_alignment<T, Size, typename unpacket_traits<Packet>::half>::value };
-};
-
 /** \internal
   * Static array. If the MatrixOrArrayOptions require auto-alignment, the array will be automatically aligned:
   * to 16 bytes boundary if the total size is a multiple of 16 bytes.
@@ -89,13 +67,13 @@ struct plain_array
   template<typename PtrType>
   EIGEN_ALWAYS_INLINE PtrType eigen_unaligned_array_assert_workaround_gcc47(PtrType array) { return array; }
   #define EIGEN_MAKE_UNALIGNED_ARRAY_ASSERT(sizemask) \
-    eigen_assert((reinterpret_cast<size_t>(eigen_unaligned_array_assert_workaround_gcc47(array)) & (sizemask)) == 0 \
+    eigen_assert((internal::UIntPtr(eigen_unaligned_array_assert_workaround_gcc47(array)) & (sizemask)) == 0 \
               && "this assertion is explained here: " \
               "http://eigen.tuxfamily.org/dox-devel/group__TopicUnalignedArrayAssert.html" \
               " **** READ THIS WEB PAGE !!! ****");
 #else
   #define EIGEN_MAKE_UNALIGNED_ARRAY_ASSERT(sizemask) \
-    eigen_assert((reinterpret_cast<size_t>(array) & (sizemask)) == 0 \
+    eigen_assert((internal::UIntPtr(array) & (sizemask)) == 0 \
               && "this assertion is explained here: " \
               "http://eigen.tuxfamily.org/dox-devel/group__TopicUnalignedArrayAssert.html" \
               " **** READ THIS WEB PAGE !!! ****");
@@ -108,7 +86,7 @@ struct plain_array<T, Size, MatrixOrArrayOptions, 8>
 
   EIGEN_DEVICE_FUNC
   plain_array() 
-  { 
+  {
     EIGEN_MAKE_UNALIGNED_ARRAY_ASSERT(7);
     check_static_allocation_size<T,Size>();
   }
@@ -146,7 +124,7 @@ struct plain_array<T, Size, MatrixOrArrayOptions, 32>
 
   EIGEN_DEVICE_FUNC
   plain_array() 
-  { 
+  {
     EIGEN_MAKE_UNALIGNED_ARRAY_ASSERT(31);
     check_static_allocation_size<T,Size>();
   }
@@ -180,7 +158,7 @@ struct plain_array<T, Size, MatrixOrArrayOptions, 64>
 template <typename T, int MatrixOrArrayOptions, int Alignment>
 struct plain_array<T, 0, MatrixOrArrayOptions, Alignment>
 {
-  EIGEN_USER_ALIGN_DEFAULT T array[1];
+  T array[1];
   EIGEN_DEVICE_FUNC plain_array() {}
   EIGEN_DEVICE_FUNC plain_array(constructor_without_unaligned_array_assert) {}
 };
@@ -384,9 +362,9 @@ template<typename T, int _Options> class DenseStorage<T, Dynamic, Dynamic, Dynam
       }
       return *this;
     }
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
+#if EIGEN_HAS_RVALUE_REFERENCES
     EIGEN_DEVICE_FUNC
-    DenseStorage(DenseStorage&& other)
+    DenseStorage(DenseStorage&& other) EIGEN_NOEXCEPT
       : m_data(std::move(other.m_data))
       , m_rows(std::move(other.m_rows))
       , m_cols(std::move(other.m_cols))
@@ -396,7 +374,7 @@ template<typename T, int _Options> class DenseStorage<T, Dynamic, Dynamic, Dynam
       other.m_cols = 0;
     }
     EIGEN_DEVICE_FUNC
-    DenseStorage& operator=(DenseStorage&& other)
+    DenseStorage& operator=(DenseStorage&& other) EIGEN_NOEXCEPT
     {
       using std::swap;
       swap(m_data, other.m_data);
@@ -463,9 +441,9 @@ template<typename T, int _Rows, int _Options> class DenseStorage<T, Dynamic, _Ro
       }
       return *this;
     }    
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
+#if EIGEN_HAS_RVALUE_REFERENCES
     EIGEN_DEVICE_FUNC
-    DenseStorage(DenseStorage&& other)
+    DenseStorage(DenseStorage&& other) EIGEN_NOEXCEPT
       : m_data(std::move(other.m_data))
       , m_cols(std::move(other.m_cols))
     {
@@ -473,7 +451,7 @@ template<typename T, int _Rows, int _Options> class DenseStorage<T, Dynamic, _Ro
       other.m_cols = 0;
     }
     EIGEN_DEVICE_FUNC
-    DenseStorage& operator=(DenseStorage&& other)
+    DenseStorage& operator=(DenseStorage&& other) EIGEN_NOEXCEPT
     {
       using std::swap;
       swap(m_data, other.m_data);
@@ -536,9 +514,9 @@ template<typename T, int _Cols, int _Options> class DenseStorage<T, Dynamic, Dyn
       }
       return *this;
     }    
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
+#if EIGEN_HAS_RVALUE_REFERENCES
     EIGEN_DEVICE_FUNC
-    DenseStorage(DenseStorage&& other)
+    DenseStorage(DenseStorage&& other) EIGEN_NOEXCEPT
       : m_data(std::move(other.m_data))
       , m_rows(std::move(other.m_rows))
     {
@@ -546,7 +524,7 @@ template<typename T, int _Cols, int _Options> class DenseStorage<T, Dynamic, Dyn
       other.m_rows = 0;
     }
     EIGEN_DEVICE_FUNC
-    DenseStorage& operator=(DenseStorage&& other)
+    DenseStorage& operator=(DenseStorage&& other) EIGEN_NOEXCEPT
     {
       using std::swap;
       swap(m_data, other.m_data);

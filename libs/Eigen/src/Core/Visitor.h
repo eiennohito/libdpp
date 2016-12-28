@@ -79,7 +79,7 @@ public:
   { return m_evaluator.coeff(row, col); }
   
 protected:
-  typename internal::evaluator<XprType>::nestedType m_evaluator;
+  internal::evaluator<XprType> m_evaluator;
   const XprType &m_xpr;
 };
 } // end namespace internal
@@ -109,14 +109,11 @@ void DenseBase<Derived>::visit(Visitor& visitor) const
   typedef typename internal::visitor_evaluator<Derived> ThisEvaluator;
   ThisEvaluator thisEval(derived());
   
-  enum { unroll =   SizeAtCompileTime != Dynamic
-                &&  ThisEvaluator::CoeffReadCost != Dynamic
-                &&  (SizeAtCompileTime == 1 || internal::functor_traits<Visitor>::Cost != Dynamic)
-                &&  SizeAtCompileTime * ThisEvaluator::CoeffReadCost + (SizeAtCompileTime-1) * internal::functor_traits<Visitor>::Cost
-                <= EIGEN_UNROLLING_LIMIT };
-  return internal::visitor_impl<Visitor, ThisEvaluator,
-      unroll ? int(SizeAtCompileTime) : Dynamic
-    >::run(thisEval, visitor);
+  enum {
+    unroll =  SizeAtCompileTime != Dynamic
+           && SizeAtCompileTime * ThisEvaluator::CoeffReadCost + (SizeAtCompileTime-1) * internal::functor_traits<Visitor>::Cost <= EIGEN_UNROLLING_LIMIT
+  };
+  return internal::visitor_impl<Visitor, ThisEvaluator, unroll ? int(SizeAtCompileTime) : Dynamic>::run(thisEval, visitor);
 }
 
 namespace internal {
@@ -200,7 +197,7 @@ struct functor_traits<max_coeff_visitor<Scalar> > {
 /** \returns the minimum of all coefficients of *this and puts in *row and *col its location.
   * \warning the result is undefined if \c *this contains NaN.
   *
-  * \sa DenseBase::minCoeff(Index*), DenseBase::maxCoeff(Index*,Index*), DenseBase::visitor(), DenseBase::minCoeff()
+  * \sa DenseBase::minCoeff(Index*), DenseBase::maxCoeff(Index*,Index*), DenseBase::visit(), DenseBase::minCoeff()
   */
 template<typename Derived>
 template<typename IndexType>
@@ -218,7 +215,7 @@ DenseBase<Derived>::minCoeff(IndexType* rowId, IndexType* colId) const
 /** \returns the minimum of all coefficients of *this and puts in *index its location.
   * \warning the result is undefined if \c *this contains NaN. 
   *
-  * \sa DenseBase::minCoeff(IndexType*,IndexType*), DenseBase::maxCoeff(IndexType*,IndexType*), DenseBase::visitor(), DenseBase::minCoeff()
+  * \sa DenseBase::minCoeff(IndexType*,IndexType*), DenseBase::maxCoeff(IndexType*,IndexType*), DenseBase::visit(), DenseBase::minCoeff()
   */
 template<typename Derived>
 template<typename IndexType>
@@ -236,7 +233,7 @@ DenseBase<Derived>::minCoeff(IndexType* index) const
 /** \returns the maximum of all coefficients of *this and puts in *row and *col its location.
   * \warning the result is undefined if \c *this contains NaN. 
   *
-  * \sa DenseBase::minCoeff(IndexType*,IndexType*), DenseBase::visitor(), DenseBase::maxCoeff()
+  * \sa DenseBase::minCoeff(IndexType*,IndexType*), DenseBase::visit(), DenseBase::maxCoeff()
   */
 template<typename Derived>
 template<typename IndexType>

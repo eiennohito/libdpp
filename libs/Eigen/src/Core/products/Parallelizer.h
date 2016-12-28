@@ -10,7 +10,7 @@
 #ifndef EIGEN_PARALLELIZER_H
 #define EIGEN_PARALLELIZER_H
 
-namespace Eigen { 
+namespace Eigen {
 
 namespace internal {
 
@@ -83,7 +83,7 @@ template<typename Index> struct GemmParallelInfo
 };
 
 template<bool Condition, typename Functor, typename Index>
-void parallelize_gemm(const Functor& func, Index rows, Index cols, bool transpose)
+void parallelize_gemm(const Functor& func, Index rows, Index cols, Index depth, bool transpose)
 {
   // TODO when EIGEN_USE_BLAS is defined,
   // we should still enable OMP for other scalar types
@@ -92,6 +92,7 @@ void parallelize_gemm(const Functor& func, Index rows, Index cols, bool transpos
   // the matrix product when multithreading is enabled. This is a temporary
   // fix to support row-major destination matrices. This whole
   // parallelizer mechanism has to be redisigned anyway.
+  EIGEN_UNUSED_VARIABLE(depth);
   EIGEN_UNUSED_VARIABLE(transpose);
   func(0,rows, 0,cols);
 #else
@@ -102,21 +103,23 @@ void parallelize_gemm(const Functor& func, Index rows, Index cols, bool transpos
   // - we are not already in a parallel code
   // - the sizes are large enough
 
-  // 1- are we already in a parallel session?
-  // FIXME omp_get_num_threads()>1 only works for openmp, what if the user does not use openmp?
-  if((!Condition) || (omp_get_num_threads()>1))
-    return func(0,rows, 0,cols);
-
-  Index size = transpose ? rows : cols;
-
-  // 2- compute the maximal number of threads from the size of the product:
+  // compute the maximal number of threads from the size of the product:
   // FIXME this has to be fine tuned
-  Index max_threads = std::max<Index>(1,size / 32);
+  Index size = transpose ? rows : cols;
+  Index pb_max_threads = std::max<Index>(1,size / 32);
+  // compute the maximal number of threads from the total amount of work:
+  double work = static_cast<double>(rows) * static_cast<double>(cols) *
+      static_cast<double>(depth);
+  double kMinTaskSize = 50000;  // Heuristic.
+  pb_max_threads = std::max<Index>(1, std::min<Index>(pb_max_threads, work / kMinTaskSize));
 
-  // 3 - compute the number of threads we are going to use
-  Index threads = std::min<Index>(nbThreads(), max_threads);
+  // compute the number of threads we are going to use
+  Index threads = std::min<Index>(nbThreads(), pb_max_threads);
 
-  if(threads==1)
+  // if multi-threading is explicitely disabled, not useful, or if we already are in a parallel session,
+  // then abort multi-threading
+  // FIXME omp_get_num_threads()>1 only works for openmp, what if the user does not use openmp?
+  if((!Condition) || (threads==1) || (omp_get_num_threads()>1))
     return func(0,rows, 0,cols);
 
   Eigen::initParallel();
@@ -124,19 +127,19 @@ void parallelize_gemm(const Functor& func, Index rows, Index cols, bool transpos
 
   if(transpose)
     std::swap(rows,cols);
-  
+
   ei_declare_aligned_stack_constructed_variable(GemmParallelInfo<Index>,info,threads,0);
-  
+
   #pragma omp parallel num_threads(threads)
   {
     Index i = omp_get_thread_num();
     // Note that the actual number of threads might be lower than the number of request ones.
     Index actual_threads = omp_get_num_threads();
-    
+
     Index blockCols = (cols / actual_threads) & ~Index(0x3);
     Index blockRows = (rows / actual_threads);
     blockRows = (blockRows/Functor::Traits::mr)*Functor::Traits::mr;
-  
+
     Index r0 = i*blockRows;
     Index actualBlockRows = (i+1==actual_threads) ? rows-r0 : blockRows;
 
